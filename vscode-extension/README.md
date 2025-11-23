@@ -159,3 +159,4 @@ MiniMax coding-plan 使用状态监控 VS Code 扩展，在底部状态栏实时
 ---
 
 **注意**: 本扩展仅用于显示 MiniMax Claude Code 使用状态，不存储或传输任何用户数据。认证信息仅保存在本地 VS Code 设置中。
+
