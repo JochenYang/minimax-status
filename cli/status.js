@@ -27,7 +27,7 @@ class StatusBar {
       `│ ${chalk.cyan('剩余时间:')} ${remaining.text}${' '.repeat(30 - remaining.text.length)} ${chalk.dim('│')}`,
       `│                                                             ${chalk.dim('│')}`,
       `│ ${chalk.cyan('已用额度:')} ${progressBar} ${usage.percentage}% ${chalk.dim('│')}`,
-      `│ ${chalk.dim('     剩余:')} ${usage.used}/${usage.total} 次调用`.padEnd(43) + chalk.dim('│'),
+      `│ ${chalk.dim('     剩余:')} ${usage.remaining}/${usage.total} 次调用`.padEnd(43) + chalk.dim('│'),
       `│                                                             ${chalk.dim('│')}`,
       this.getStatusLine(usage.percentage),
       chalk.bold.blue('└─────────────────────────────────────────────────────────────┘')
@@ -100,7 +100,7 @@ class StatusBar {
       color = chalk.green;
     }
 
-    return `${color('●')} ${modelName} ${usage.percentage}% ${chalk.dim(`(${usage.used}/${usage.total})`)} ${chalk.gray('•')} ${remaining.text} ${chalk.gray('•')} ${status}`;
+    return `${color('●')} ${modelName} ${usage.percentage}% ${chalk.dim(`(${usage.remaining}/${usage.total})`)} ${chalk.gray('•')} ${remaining.text} ${chalk.gray('•')} ${status}`;
   }
 }
 

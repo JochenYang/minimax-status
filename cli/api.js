@@ -1,12 +1,18 @@
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
+const chalk = require('chalk').default;
 
 class MinimaxAPI {
   constructor() {
     this.token = null;
     this.groupId = null;
     this.configPath = path.join(process.env.HOME || process.env.USERPROFILE, '.minimax-config.json');
+    this.cache = {
+      data: null,
+      timestamp: 0
+    };
+    this.cacheTimeout = 8000; // 8秒缓存
     this.loadConfig();
   }
 
@@ -42,11 +48,18 @@ class MinimaxAPI {
     this.saveConfig();
   }
 
-  async getUsageStatus() {
+  async getUsageStatus(forceRefresh = false) {
     if (!this.token || !this.groupId) {
       throw new Error('Missing credentials. Please run "minimax-status auth <token> <groupId>" first');
     }
 
+    // 检查缓存
+    const now = Date.now();
+    if (!forceRefresh && this.cache.data && (now - this.cache.timestamp) < this.cacheTimeout) {
+      return this.cache.data;
+    }
+
+    const startTime = Date.now();
     try {
       const response = await axios.get(
         `https://www.minimaxi.com/v1/api/openplatform/coding_plan/remains`,
@@ -55,17 +68,37 @@ class MinimaxAPI {
           headers: {
             'Authorization': `Bearer ${this.token}`,
             'Accept': 'application/json'
-          }
+          },
+          timeout: 10000 // 10秒超时
         }
       );
+
+      const responseTime = Date.now() - startTime;
+      console.log(chalk.gray(`API 响应时间: ${responseTime}ms`));
+
+      // 更新缓存
+      this.cache.data = response.data;
+      this.cache.timestamp = now;
 
       return response.data;
     } catch (error) {
       if (error.response?.status === 401) {
         throw new Error('Invalid token or unauthorized. Please check your credentials.');
+      } else if (error.code === 'ECONNABORTED') {
+        throw new Error('Request timeout. Please check your network connection.');
+      } else if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+        throw new Error('Network error. Please check your internet connection.');
       }
       throw new Error(`API request failed: ${error.message}`);
     }
+  }
+
+  // 清除缓存
+  clearCache() {
+    this.cache = {
+      data: null,
+      timestamp: 0
+    };
   }
 
   parseUsageData(apiData) {
@@ -114,7 +147,8 @@ class MinimaxAPI {
         text: hours > 0 ? `${hours} 小时 ${minutes} 分钟后重置` : `${minutes} 分钟后重置`
       },
       usage: {
-        used: remainingCount,
+        used: usedCount, // 修复：显示已使用次数，不是剩余次数
+        remaining: remainingCount, // 新增：剩余次数
         total: modelData.current_interval_total_count,
         percentage: usedPercentage
       }

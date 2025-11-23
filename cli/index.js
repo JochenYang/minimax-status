@@ -25,6 +25,70 @@ program
     console.log(chalk.green("✓ 认证信息已保存"));
   });
 
+// Health check command
+program
+  .command("health")
+  .description("检查配置和连接状态")
+  .action(async () => {
+    const spinner = ora("正在检查...").start();
+    let checks = {
+      config: false,
+      token: false,
+      groupId: false,
+      api: false
+    };
+
+    // 检查配置文件
+    try {
+      const configPath = require('path').join(
+        process.env.HOME || process.env.USERPROFILE,
+        '.minimax-config.json'
+      );
+      if (require('fs').existsSync(configPath)) {
+        checks.config = true;
+      }
+      spinner.succeed("配置文件检查");
+    } catch (error) {
+      spinner.fail("配置文件检查失败");
+    }
+
+    // 检查Token
+    if (api.token) {
+      checks.token = true;
+      console.log(chalk.green("✓ Token: ") + chalk.gray("已配置"));
+    } else {
+      console.log(chalk.red("✗ Token: ") + chalk.gray("未配置"));
+    }
+
+    // 检查GroupID
+    if (api.groupId) {
+      checks.groupId = true;
+      console.log(chalk.green("✓ GroupID: ") + chalk.gray("已配置"));
+    } else {
+      console.log(chalk.red("✗ GroupID: ") + chalk.gray("未配置"));
+    }
+
+    // 测试API连接
+    if (checks.token && checks.groupId) {
+      try {
+        await api.getUsageStatus();
+        checks.api = true;
+        console.log(chalk.green("✓ API连接: ") + chalk.gray("正常"));
+      } catch (error) {
+        console.log(chalk.red("✗ API连接: ") + chalk.gray(error.message));
+      }
+    }
+
+    // 总结
+    console.log("\n" + chalk.bold("健康检查结果:"));
+    const allPassed = Object.values(checks).every(v => v);
+    if (allPassed) {
+      console.log(chalk.green("✓ 所有检查通过，配置正常！"));
+    } else {
+      console.log(chalk.yellow("⚠ 发现问题，请检查上述错误信息"));
+    }
+  });
+
 // Status command
 program
   .command("status")
@@ -289,7 +353,7 @@ program
       statusLine += `${usageColor(percentage + '%')} | `;
 
       // 剩余次数
-      statusLine += `${chalk.yellow('↻')} ${chalk.white(usage.used + '/' + usage.total)} | `;
+      statusLine += `${chalk.yellow('↻')} ${chalk.white(usage.remaining + '/' + usage.total)} | `;
 
       // 上下文使用情况（参考ccline：⚡ 百分比 · token数/总大小）
       if (contextUsageTokens) {
