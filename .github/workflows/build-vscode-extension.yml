@@ -44,34 +44,15 @@ jobs:
         echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
         echo "Version: $VERSION"
 
-    - name: Create Release
-      uses: softprops/action-gh-release@v1
-      with:
-        tag_name: vscode-v${{ steps.version.outputs.VERSION }}
-        name: VSCode Extension v${{ steps.version.outputs.VERSION }}
-        body: |
-          MiniMax Status - VSCode Extension v${{ steps.version.outputs.VERSION }}
-
-          ## 安装说明
-
-          1. 点击下方 `minimax-status-vscode-${{ steps.version.outputs.VERSION }}.vsix` 下载扩展包
-          2. 在 VS Code 中按 `Ctrl+Shift+P`
-          3. 输入 "Extensions: Install from VSIX..."
-          4. 选择下载的 `.vsix` 文件
-
-          ## 更新内容
-
-          请查看 [完整更新日志](https://github.com/JochenYang/minimax-status/commits/main)
-        files: |
-          vscode-extension/minimax-status-vscode-${{ steps.version.outputs.VERSION }}.vsix
-        draft: false
-        prerelease: false
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
     - name: Upload VSIX artifact
       uses: actions/upload-artifact@v4
       with:
         name: minimax-status-vscode-${{ steps.version.outputs.VERSION }}
         path: vscode-extension/minimax-status-vscode-${{ steps.version.outputs.VERSION }}.vsix
         retention-days: 30
+
+    - name: Display download info
+      run: |
+        echo "VSIX file built successfully!"
+        echo "Download from Actions tab or artifact:"
+        echo "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
