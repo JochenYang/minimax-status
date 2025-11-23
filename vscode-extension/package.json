@@ -2,7 +2,7 @@
   "name": "minimax-status-vscode",
   "displayName": "MiniMax Status",
   "description": "在 VS Code 状态栏显示 MiniMax Claude Code 使用状态",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "publisher": "JochenYang",
   "engines": {
     "vscode": "^1.74.0"
