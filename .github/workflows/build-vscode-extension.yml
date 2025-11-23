@@ -34,8 +34,6 @@ jobs:
     - name: Build VSIX
       working-directory: ./vscode-extension
       run: npx vsce package
-      env:
-        VSCE_PAT: ${{ secrets.VSCE_PAT }}
 
     - name: Get version
       id: version
