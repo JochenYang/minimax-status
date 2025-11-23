@@ -1,0 +1,78 @@
+name: Build and Release VSCode Extension
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'vscode-extension/**'
+      - '.github/workflows/build-vscode-extension.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: 'vscode-extension/package-lock.json'
+
+    - name: Install dependencies
+      working-directory: ./vscode-extension
+      run: npm ci
+
+    - name: Run tests
+      working-directory: ./vscode-extension
+      run: npm test
+
+    - name: Build VSIX
+      working-directory: ./vscode-extension
+      run: npx vsce package
+      env:
+        VSCE_PAT: ${{ secrets.VSCE_PAT }}
+
+    - name: Get version
+      id: version
+      working-directory: ./vscode-extension
+      run: |
+        VERSION=$(node -p "require('./package.json').version")
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+        echo "Version: $VERSION"
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: vscode-v${{ steps.version.outputs.VERSION }}
+        name: VSCode Extension v${{ steps.version.outputs.VERSION }}
+        body: |
+          MiniMax Status - VSCode Extension v${{ steps.version.outputs.VERSION }}
+
+          ## 安装说明
+
+          1. 点击下方 `minimax-status-vscode-${{ steps.version.outputs.VERSION }}.vsix` 下载扩展包
+          2. 在 VS Code 中按 `Ctrl+Shift+P`
+          3. 输入 "Extensions: Install from VSIX..."
+          4. 选择下载的 `.vsix` 文件
+
+          ## 更新内容
+
+          请查看 [完整更新日志](https://github.com/JochenYang/minimax-status/commits/main)
+        files: |
+          vscode-extension/minimax-status-vscode-${{ steps.version.outputs.VERSION }}.vsix
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Upload VSIX artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: minimax-status-vscode-${{ steps.version.outputs.VERSION }}
+        path: vscode-extension/minimax-status-vscode-${{ steps.version.outputs.VERSION }}.vsix
+        retention-days: 30

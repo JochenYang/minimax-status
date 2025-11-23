@@ -12,19 +12,25 @@ MiniMax coding-plan 使用状态监控 VS Code 扩展，在底部状态栏实时
 
 ## 安装扩展
 
-### 方法一：从 VS Code 市场安装
+### 手动安装 VSIX 文件
 
-1. 打开 VS Code
-2. 进入扩展商店（`Ctrl+Shift+X`）
-3. 搜索 "MiniMax Status"
-4. 点击安装
+目前扩展尚未发布到 VS Code 市场，请按以下步骤手动安装：
 
-### 方法二：手动安装 VSIX 文件
+#### 方法一：下载最新 VSIX 文件
 
-1. 下载 `.vsix` 安装包
-2. 在 VS Code 中按 `Ctrl+Shift+P`
-3. 输入 "Extensions: Install from VSIX..."
-4. 选择下载的 `.vsix` 文件
+1. 访问 [GitHub Releases 页面](https://github.com/JochenYang/minimax-status/releases)
+2. 下载最新的 `.vsix` 文件（例如：`minimax-status-vscode-1.0.0.vsix`）
+3. 在 VS Code 中按 `Ctrl+Shift+P`
+4. 输入 "Extensions: Install from VSIX..."
+5. 选择下载的 `.vsix` 文件
+
+#### 方法二：从源码构建
+
+1. 克隆本仓库：`git clone https://github.com/JochenYang/minimax-status.git`
+2. 进入扩展目录：`cd vscode-extension`
+3. 安装依赖：`npm install`
+4. 打包扩展：`npm run package`
+5. 在 VS Code 中安装生成的 `.vsix` 文件
 
 ## 快速开始
 
