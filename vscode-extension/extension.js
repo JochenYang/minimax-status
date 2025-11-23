@@ -1,251 +1,7 @@
 const vscode = require('vscode');
 const MinimaxAPI = require('./api');
 
-// Create settings webview
-function showSettingsWebView(context, api, updateStatus) {
-    const panel = vscode.window.createWebviewPanel(
-        'minimaxSettings',
-        'MiniMax Status 设置',
-        vscode.ViewColumn.One,
-        {
-            enableScripts: true,
-            retainContextWhenHidden: true
-        }
-    );
-
-    // Get current configuration
-    const config = vscode.workspace.getConfiguration('minimaxStatus');
-    const currentToken = config.get('token') || '';
-    const currentGroupId = config.get('groupId') || '';
-    const currentInterval = config.get('refreshInterval') || 30;
-    const currentShowTooltip = config.get('showTooltip') ?? true;
-
-    // Create HTML content
-    panel.webview.html = `
-    <!DOCTYPE html>
-    <html lang="zh-CN">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>MiniMax Status 设置</title>
-        <style>
-            body {
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                margin: 20px;
-                padding: 0;
-                color: var(--vscode-foreground);
-                background-color: var(--vscode-editor-background);
-            }
-            .container {
-                max-width: 600px;
-                margin: 0 auto;
-            }
-            h1 {
-                color: var(--vscode-editor-foreground);
-                border-bottom: 2px solid var(--vscode-panel-border);
-                padding-bottom: 10px;
-            }
-            .form-group {
-                margin-bottom: 20px;
-            }
-            label {
-                display: block;
-                margin-bottom: 8px;
-                font-weight: 600;
-                color: var(--vscode-foreground);
-            }
-            input[type="text"],
-            input[type="password"],
-            input[type="number"] {
-                width: 100%;
-                padding: 10px;
-                border: 1px solid var(--vscode-input-border, #3c3c3c);
-                border-radius: 4px;
-                background-color: var(--vscode-input-background, #1e1e1e);
-                color: var(--vscode-input-foreground, #cccccc);
-                font-size: 14px;
-            }
-            input:focus {
-                outline: none;
-                border-color: var(--vscode-focusBorder, #007fd4);
-            }
-            .hint {
-                font-size: 12px;
-                color: var(--vscode-descriptionForeground, #999);
-                margin-top: 5px;
-            }
-            .checkbox-group {
-                display: flex;
-                align-items: center;
-                gap: 8px;
-            }
-            button {
-                background-color: var(--vscode-button-background, #0e639c);
-                color: var(--vscode-button-foreground, #ffffff);
-                border: none;
-                padding: 10px 20px;
-                border-radius: 4px;
-                cursor: pointer;
-                font-size: 14px;
-                font-weight: 600;
-            }
-            button:hover {
-                background-color: var(--vscode-button-hoverBackground, #1177bb);
-            }
-            .error {
-                color: #f44747;
-                font-size: 12px;
-                margin-top: 5px;
-            }
-            .success {
-                color: #4ec9b0;
-                font-size: 14px;
-                margin-top: 10px;
-                padding: 10px;
-                background-color: rgba(78, 201, 176, 0.1);
-                border-radius: 4px;
-                display: none;
-            }
-            .link {
-                color: var(--vscode-textLink-foreground, #3794ff);
-                text-decoration: none;
-            }
-            .link:hover {
-                text-decoration: underline;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1>🔧 MiniMax Status 设置</h1>
-
-            <div class="form-group">
-                <label for="token">API 访问令牌 (API Key)</label>
-                <input type="password" id="token" value="${currentToken}" placeholder="请输入 API Key" />
-                <div class="hint">
-                    从 <a href="https://platform.minimaxi.com/user-center/payment/coding-plan" target="_blank" class="link">MiniMax 开放平台</a> 获取
-                </div>
-                <div class="error" id="token-error"></div>
-            </div>
-
-            <div class="form-group">
-                <label for="groupId">组 ID (GroupID)</label>
-                <input type="text" id="groupId" value="${currentGroupId}" placeholder="请输入 GroupID" />
-                <div class="hint">
-                    在用户中心或账户信息页面找到
-                </div>
-                <div class="error" id="groupId-error"></div>
-            </div>
-
-            <div class="form-group">
-                <label for="interval">刷新间隔（秒）</label>
-                <input type="number" id="interval" value="${currentInterval}" min="10" max="300" />
-                <div class="hint">建议 10-30 秒</div>
-            </div>
-
-            <div class="form-group">
-                <div class="checkbox-group">
-                    <input type="checkbox" id="showTooltip" ${currentShowTooltip ? 'checked' : ''} />
-                    <label for="showTooltip" style="margin: 0;">显示详细提示信息</label>
-                </div>
-            </div>
-
-            <button onclick="saveSettings()">保存设置</button>
-            <button onclick="cancel()" style="background-color: #6c757d; margin-left: 10px;">取消</button>
-
-            <div class="success" id="success-message">✅ 设置已保存！</div>
-        </div>
-
-        <script>
-            const vscode = acquireVsCodeApi();
-
-            function saveSettings() {
-                const token = document.getElementById('token').value.trim();
-                const groupId = document.getElementById('groupId').value.trim();
-                const interval = parseInt(document.getElementById('interval').value);
-                const showTooltip = document.getElementById('showTooltip').checked;
-
-                // Clear previous errors
-                document.getElementById('token-error').textContent = '';
-                document.getElementById('groupId-error').textContent = '';
-
-                // Validate inputs
-                let hasError = false;
-                if (!token) {
-                    document.getElementById('token-error').textContent = 'API Key 不能为空';
-                    hasError = true;
-                }
-
-                if (!groupId) {
-                    document.getElementById('groupId-error').textContent = 'GroupID 不能为空';
-                    hasError = true;
-                }
-
-                if (hasError) {
-                    return;
-                }
-
-                // Send data to extension
-                vscode.postMessage({
-                    command: 'saveSettings',
-                    data: {
-                        token,
-                        groupId,
-                        interval,
-                        showTooltip
-                    }
-                });
-
-                // Show success message
-                document.getElementById('success-message').style.display = 'block';
-                setTimeout(() => {
-                    vscode.postMessage({ command: 'close' });
-                }, 1500);
-            }
-
-            function cancel() {
-                vscode.postMessage({ command: 'close' });
-            }
-
-            // Listen for messages from extension
-            window.addEventListener('message', event => {
-                const message = event.data;
-                if (message.command === 'close') {
-                    panel.dispose();
-                }
-            });
-        </script>
-    </body>
-    </html>
-    `;
-
-    // Handle messages from webview
-    panel.webview.onDidReceiveMessage(
-        message => {
-            if (message.command === 'saveSettings') {
-                const { token, groupId, interval, showTooltip } = message.data;
-
-                // Update configuration
-                config.update('token', token, vscode.ConfigurationTarget.Global);
-                config.update('groupId', groupId, vscode.ConfigurationTarget.Global);
-                config.update('refreshInterval', interval, vscode.ConfigurationTarget.Global);
-                config.update('showTooltip', showTooltip, vscode.ConfigurationTarget.Global);
-
-                // Refresh API and update status
-                api.refreshConfig();
-                updateStatus();
-            } else if (message.command === 'close') {
-                panel.dispose();
-            }
-        },
-        undefined,
-        context.subscriptions
-    );
-}
-
-/**
- * @param {vscode.ExtensionContext} context
- */
+// Activate function - entry point for the extension
 function activate(context) {
     console.log('MiniMax Status 扩展已激活');
 
@@ -325,6 +81,243 @@ function activate(context) {
             });
         }, 2000);
     }
+}
+
+// Create settings webview
+function showSettingsWebView(context, api, updateStatus) {
+    const panel = vscode.window.createWebviewPanel(
+        'minimaxSettings',
+        'MiniMax Status 设置',
+        vscode.ViewColumn.One,
+        {
+            enableScripts: true,
+            retainContextWhenHidden: true
+        }
+    );
+
+    // Get current configuration
+    const config = vscode.workspace.getConfiguration('minimaxStatus');
+    const currentToken = config.get('token') || '';
+    const currentGroupId = config.get('groupId') || '';
+    const currentInterval = config.get('refreshInterval') || 30;
+    const currentShowTooltip = config.get('showTooltip') ?? true;
+
+    // Create HTML content
+    panel.webview.html = `
+    <!DOCTYPE html>
+    <html lang="zh-CN">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>MiniMax Status 设置</title>
+        <style>
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                margin: 20px;
+                padding: 0;
+                color: var(--vscode-foreground);
+                background-color: var(--vscode-editor-background);
+            }
+            .container {
+                max-width: 600px;
+                margin: 0 auto;
+            }
+            h1 {
+                color: var(--vscode-editor-foreground);
+                border-bottom: 2px solid var(--vscode-panel-border);
+                padding-bottom: 10px;
+            }
+            .form-group {
+                margin-bottom: 20px;
+            }
+            label {
+                display: block;
+                margin-bottom: 5px;
+                font-weight: 600;
+                color: var(--vscode-editor-foreground);
+            }
+            input[type="text"], input[type="number"] {
+                width: 100%;
+                padding: 8px 12px;
+                border: 1px solid var(--vscode-input-border, #6c6c6c);
+                border-radius: 4px;
+                background-color: var(--vscode-input-background);
+                color: var(--vscode-input-foreground);
+                font-size: 14px;
+                box-sizing: border-box;
+            }
+            input[type="number"] {
+                width: 120px;
+            }
+            .checkbox-group {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            .error {
+                color: var(--vscode-errorForeground);
+                font-size: 12px;
+                margin-top: 4px;
+            }
+            button {
+                background-color: var(--vscode-button-background, #0e639c);
+                color: var(--vscode-button-foreground, #ffffff);
+                border: none;
+                padding: 8px 16px;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 14px;
+                margin-right: 10px;
+            }
+            button:hover {
+                background-color: var(--vscode-button-hoverBackground, #1177bb);
+            }
+            .info-text {
+                font-size: 12px;
+                color: var(--vscode-descriptionForeground);
+                margin-top: 4px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>🔧 MiniMax Status 配置</h1>
+
+            <div class="form-group">
+                <label for="token">API Key</label>
+                <input type="text" id="token" placeholder="请输入 API Key" value="${currentToken}">
+                <div class="info-text">您的 MiniMax API 访问令牌</div>
+                <div class="error" id="token-error"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="groupId">Group ID</label>
+                <input type="text" id="groupId" placeholder="请输入 Group ID" value="${currentGroupId}">
+                <div class="info-text">您的 MiniMax 组 ID</div>
+                <div class="error" id="groupId-error"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="interval">刷新间隔（秒）</label>
+                <input type="number" id="interval" min="5" max="300" value="${currentInterval}">
+                <div class="info-text">自动刷新间隔，建议 10-30 秒</div>
+            </div>
+
+            <div class="form-group">
+                <label class="checkbox-group">
+                    <input type="checkbox" id="showTooltip" ${currentShowTooltip ? 'checked' : ''}>
+                    <span>显示详细提示信息</span>
+                </label>
+            </div>
+
+            <div style="margin-top: 30px;">
+                <button onclick="saveSettings()">保存配置</button>
+                <button onclick="cancelSettings()" style="background-color: var(--vscode-button-secondaryBackground, #6a737d);">取消</button>
+            </div>
+
+            <div style="margin-top: 30px; padding: 15px; background-color: var(--vscode-textBlockQuote-background, #2d2d30); border-radius: 4px;">
+                <strong>如何获取认证信息？</strong><br><br>
+                1. 访问 <a href="https://platform.minimaxi.com/user-center/payment/coding-plan" target="_blank">MiniMax 开放平台</a><br>
+                2. 登录您的账户<br>
+                3. 在用户中心复制您的 <strong>GroupID</strong><br>
+                4. 在 Coding Plan 页面创建或获取 <strong>API Key</strong>
+            </div>
+        </div>
+
+        <script>
+            const vscode = acquireVsCodeApi();
+
+            function saveSettings() {
+                const token = document.getElementById('token').value.trim();
+                const groupId = document.getElementById('groupId').value.trim();
+                const interval = parseInt(document.getElementById('interval').value);
+                const showTooltip = document.getElementById('showTooltip').checked;
+
+                // Clear previous errors
+                document.getElementById('token-error').textContent = '';
+                document.getElementById('groupId-error').textContent = '';
+
+                // Validate inputs
+                let hasError = false;
+
+                if (!token) {
+                    document.getElementById('token-error').textContent = '请输入 API Key';
+                    hasError = true;
+                }
+
+                if (!groupId) {
+                    document.getElementById('groupId-error').textContent = '请输入 Group ID';
+                    hasError = true;
+                }
+
+                if (interval < 5 || interval > 300) {
+                    alert('刷新间隔必须在 5-300 秒之间');
+                    hasError = true;
+                }
+
+                if (hasError) {
+                    return;
+                }
+
+                // Save settings
+                vscode.postMessage({
+                    command: 'saveSettings',
+                    token: token,
+                    groupId: groupId,
+                    interval: interval,
+                    showTooltip: showTooltip
+                });
+            }
+
+            function cancelSettings() {
+                vscode.postMessage({
+                    command: 'cancelSettings'
+                });
+            }
+
+            // Handle messages from extension
+            window.addEventListener('message', event => {
+                const message = event.data;
+                if (message.command === 'closePanel') {
+                    panel.dispose();
+                }
+            });
+        </script>
+    </body>
+    </html>
+    `;
+
+    // Handle messages from webview
+    panel.webview.onDidReceiveMessage(
+        message => {
+            switch (message.command) {
+                case 'saveSettings':
+                    // Update VSCode settings
+                    const config = vscode.workspace.getConfiguration('minimaxStatus');
+
+                    config.update('token', message.token, vscode.ConfigurationTarget.Global);
+                    config.update('groupId', message.groupId, vscode.ConfigurationTarget.Global);
+                    config.update('refreshInterval', message.interval, vscode.ConfigurationTarget.Global);
+                    config.update('showTooltip', message.showTooltip, vscode.ConfigurationTarget.Global);
+
+                    panel.dispose();
+
+                    // Refresh status
+                    updateStatus();
+
+                    vscode.window.showInformationMessage('✅ 配置保存成功！');
+                    break;
+
+                case 'cancelSettings':
+                    panel.dispose();
+                    break;
+            }
+        },
+        undefined,
+        context.subscriptions
+    );
+
+    return panel;
 }
 
 function updateStatusBar(statusBarItem, data) {
