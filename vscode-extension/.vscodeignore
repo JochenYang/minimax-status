@@ -3,7 +3,6 @@
 **/*.map
 **/*.vsix
 test/**
-.gitignore
 .eslintrc.json
 .npmrc
 .vsce ignore
