@@ -20,7 +20,7 @@
         "command": "minimaxStatus.setup",
         "title": "MiniMax Status: 配置向导",
         "category": "MiniMax",
-        "description": "配置 MiniMax 访问令牌和组 ID"
+        "description": "配置 MiniMax 访问令牌和group ID"
       },
       {
         "command": "minimaxStatus.refresh",
@@ -41,7 +41,7 @@
         "minimaxStatus.groupId": {
           "type": "string",
           "default": "",
-          "description": "MiniMax 组 ID",
+          "description": "MiniMax group ID",
           "order": 2
         },
         "minimaxStatus.refreshInterval": {
