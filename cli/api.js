@@ -74,7 +74,6 @@ class MinimaxAPI {
       );
 
       const responseTime = Date.now() - startTime;
-      console.log(chalk.gray(`API 响应时间: ${responseTime}ms`));
 
       // 更新缓存
       this.cache.data = response.data;
@@ -124,6 +123,17 @@ class MinimaxAPI {
     const hours = Math.floor(remainingMs / (1000 * 60 * 60));
     const minutes = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
 
+    // Context window information
+    // 默认上下文窗口大小 (200K tokens)
+    const defaultContextSize = 200000;
+    const contextWindow = {
+      total: defaultContextSize,
+      used: 0,
+      percentage: 0,
+      totalFormatted: '200K',
+      usedFormatted: '0K'
+    };
+
     return {
       modelName: modelData.model_name,
       timeWindow: {
@@ -151,7 +161,8 @@ class MinimaxAPI {
         remaining: remainingCount, // 新增：剩余次数
         total: modelData.current_interval_total_count,
         percentage: usedPercentage
-      }
+      },
+      contextWindow
     };
   }
 }

@@ -48,3 +48,6 @@ Thumbs.db
 
 # 项目特定
 .claude-config.json
+
+# VSCode 扩展（独立包）
+vscode-extension/

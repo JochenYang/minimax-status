@@ -5,6 +5,7 @@ const chalk = require("chalk").default;
 const ora = require("ora").default;
 const MinimaxAPI = require("./api");
 const StatusBar = require("./status");
+const packageJson = require("../package.json");
 
 const program = new Command();
 const api = new MinimaxAPI();
@@ -12,7 +13,7 @@ const api = new MinimaxAPI();
 program
   .name("minimax-status")
   .description("MiniMax Claude Code 使用状态监控工具")
-  .version("1.0.0");
+  .version(packageJson.version);
 
 // Auth command
 program
@@ -226,29 +227,50 @@ function calculateUsageTokens(usage) {
   return 0;
 }
 
-// Statusline command
+// Statusline command - 单次输出模式（Claude Code自己控制刷新）
 program
   .command("statusline")
-  .description("Claude Code状态栏集成（从stdin读取数据，输出单行状态）")
+  .description("Claude Code状态栏集成（从stdin读取数据，单次输出）")
   .action(async () => {
-    try {
-      // 读取stdin数据（如果可用）
-      let stdinData = null;
-      if (!process.stdin.isTTY) {
-        const chunks = [];
-        for await (const chunk of process.stdin) {
-          chunks.push(chunk);
-        }
-        const stdinString = Buffer.concat(chunks).toString();
-        if (stdinString.trim()) {
-          try {
-            stdinData = JSON.parse(stdinString);
-          } catch (e) {
-            // 忽略JSON解析错误
-          }
+    // 读取stdin数据（如果可用）
+    let stdinData = null;
+    if (!process.stdin.isTTY) {
+      const chunks = [];
+      for await (const chunk of process.stdin) {
+        chunks.push(chunk);
+      }
+      const stdinString = Buffer.concat(chunks).toString();
+      if (stdinString.trim()) {
+        try {
+          stdinData = JSON.parse(stdinString);
+        } catch (e) {
+          // 忽略JSON解析错误
         }
       }
+    }
 
+    // 获取CLI当前目录
+    const cliCurrentDir = process.cwd().split(/[\\/]/).pop();
+
+    const formatContextSize = (size) => {
+      if (size >= 1000000) {
+        return `${Math.round(size / 100000) / 10}M`;
+      } else if (size >= 1000) {
+        return `${Math.round(size / 1000)}K`;
+      }
+      return `${size}`;
+    };
+
+    const formatTokens = (tokens) => {
+      if (tokens >= 1000000) {
+        return `${Math.round(tokens / 100000) / 10}M`;
+      } else if (tokens >= 1000) {
+        return `${Math.round(tokens / 100) / 10}k`;
+      }
+      return `${tokens}`;
+    };
+
+    try {
       // 获取使用状态
       const apiData = await api.getUsageStatus();
       const usageData = api.parseUsageData(apiData);
@@ -262,9 +284,6 @@ program
       let currentDir = null;
       let modelId = null;
       let contextSize = 200000; // 默认值
-
-      // 获取CLI当前目录
-      const cliCurrentDir = process.cwd().split(/[\\/]/).pop();
 
       if (stdinData) {
         // Claude Code传递的模型信息
@@ -306,24 +325,6 @@ program
         }
       }
 
-      const formatContextSize = (size) => {
-        if (size >= 1000000) {
-          return `${Math.round(size / 100000) / 10}M`;
-        } else if (size >= 1000) {
-          return `${Math.round(size / 1000)}K`;
-        }
-        return `${size}`;
-      };
-
-      const formatTokens = (tokens) => {
-        if (tokens >= 1000000) {
-          return `${Math.round(tokens / 100000) / 10}M`;
-        } else if (tokens >= 1000) {
-          return `${Math.round(tokens / 100) / 10}k`;
-        }
-        return `${tokens}`;
-      };
-
       const contextSizeText = formatContextSize(contextSize);
 
       // 状态图标（基于真实上下文使用情况，否则基于额度）
@@ -364,16 +365,14 @@ program
         statusLine += `${chalk.gray(contextSizeText)} | `;
       }
 
-      // 剩余时间和状态图标
-      const statusColor = displayPercentage >= 85 ? chalk.red : displayPercentage >= 60 ? chalk.yellow : chalk.green;
-      statusLine += `${chalk.gray('⏱')} ${chalk.white(remainingText)} ${statusColor(statusIcon)}`;
+      // 剩余时间（去掉状态图标，避免重复显示）
+      statusLine += `${chalk.gray('⏱')} ${chalk.white(remainingText)}`;
 
-      // 输出单行状态（带颜色）
+      // 单次输出后就退出
       console.log(statusLine);
     } catch (error) {
       // 输出错误状态（纯文本）
       console.log(`❌ MiniMax 错误: ${error.message}`);
-      process.exit(1);
     }
   });
 

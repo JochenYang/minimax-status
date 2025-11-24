@@ -1,11 +1,16 @@
 {
   "name": "minimax-status",
-  "version": "1.0.5",
+  "version": "1.0.12",
   "description": "MiniMax Claude Code 使用状态监控工具",
   "bin": {
     "minimax-status": "cli/index.js",
     "minimax": "cli/index.js"
   },
+  "files": [
+    "cli/",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
