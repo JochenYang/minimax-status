@@ -2,7 +2,7 @@
   "name": "minimax-status-vscode",
   "displayName": "MiniMax Status",
   "description": "在 VS Code 状态栏显示 MiniMax coding-plan 使用状态",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "publisher": "JochenYang",
   "engines": {
     "vscode": "^1.75.0"

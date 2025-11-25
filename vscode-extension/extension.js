@@ -207,7 +207,7 @@ function showSettingsWebView(context, api, updateStatus) {
     </head>
     <body>
         <div class="container">
-            <h1>🔧 MiniMax Status 配置</h1>
+            <h1>MiniMax Status 配置</h1>
 
             <div class="form-group">
                 <label for="token">API Key</label>
@@ -217,9 +217,9 @@ function showSettingsWebView(context, api, updateStatus) {
             </div>
 
             <div class="form-group">
-                <label for="groupId">Group ID</label>
-                <input type="text" id="groupId" placeholder="请输入 Group ID" value="${currentGroupId}">
-                <div class="info-text">您的 MiniMax 组 ID</div>
+                <label for="groupId">groupID</label>
+                <input type="text" id="groupId" placeholder="请输入 groupID" value="${currentGroupId}">
+                <div class="info-text">您的 MiniMax groupID</div>
                 <div class="error" id="groupId-error"></div>
             </div>
 
@@ -247,7 +247,7 @@ function showSettingsWebView(context, api, updateStatus) {
                 <strong>如何获取认证信息？</strong><br><br>
                 1. 访问 <a href="https://platform.minimaxi.com/user-center/payment/coding-plan" target="_blank">MiniMax 开放平台</a><br>
                 2. 登录您的账户<br>
-                3. 在用户中心复制您的 <strong>GroupID</strong><br>
+                3. 在用户中心复制您的 <strong>groupID</strong><br>
                 4. 在 Coding Plan 页面创建或获取 <strong>API Key</strong>
             </div>
         </div>
@@ -274,7 +274,7 @@ function showSettingsWebView(context, api, updateStatus) {
                 }
 
                 if (!groupId) {
-                    document.getElementById('groupId-error').textContent = '请输入 Group ID';
+                    document.getElementById('groupId-error').textContent = '请输入 groupID';
                     hasError = true;
                 }
 
