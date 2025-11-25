@@ -8,6 +8,10 @@ on:
       - '.github/workflows/build-vscode-extension.yml'
   workflow_dispatch:
 
+permissions:
+  contents: write
+  id-token: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
