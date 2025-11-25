@@ -17,8 +17,11 @@ function activate(context) {
 
     const updateStatus = async () => {
       try {
-        const apiData = await api.getUsageStatus();
-        const usageData = api.parseUsageData(apiData);
+        const [apiData, subscriptionData] = await Promise.all([
+          api.getUsageStatus(),
+          api.getSubscriptionDetails().catch(() => null) // Silent fail for subscription API
+        ]);
+        const usageData = api.parseUsageData(apiData, subscriptionData);
         updateStatusBar(statusBarItem, usageData);
       } catch (error) {
         console.error("获取状态失败:", error.message);
@@ -365,7 +368,7 @@ function showSettingsWebView(context, api, updateStatus) {
 }
 
 function updateStatusBar(statusBarItem, data) {
-  const { usage, modelName, remaining } = data;
+  const { usage, modelName, remaining, expiry } = data;
 
   // 关键修复：设置状态栏命令为刷新
   statusBarItem.command = "minimaxStatus.refresh";
@@ -389,12 +392,17 @@ function updateStatusBar(statusBarItem, data) {
     `模型: ${modelName}`,
     `使用进度: ${usage.percentage}% (${usage.used}/${usage.total})`,
     `剩余时间: ${remaining.text}`,
-    `时间窗口: ${data.timeWindow.start}-${data.timeWindow.end}(${data.timeWindow.timezone})`,
-    "",
-    "点击刷新状态",
-  ].join("\n");
+    `时间窗口: ${data.timeWindow.start}-${data.timeWindow.end}(${data.timeWindow.timezone})`
+  ];
 
-  statusBarItem.tooltip = tooltip;
+  // Add expiry information if available
+  if (expiry) {
+    tooltip.push(`套餐到期: ${expiry.date} (${expiry.text})`);
+  }
+
+  tooltip.push("", "点击刷新状态");
+
+  statusBarItem.tooltip = tooltip.join("\n");
 }
 
 function deactivate() {
