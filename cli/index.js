@@ -168,47 +168,203 @@ const MODEL_CONTEXT_SIZES = {
   "minimax-m1-stable": 200000,
 };
 
-// 解析转录文件，借鉴ccline的实现
+// 解析转录文件
 async function parseTranscriptUsage(transcriptPath) {
   const fs = require("fs").promises;
   const path = require("path");
 
   try {
+    // 尝试从当前转录文件解析
+    const usage = await tryParseTranscriptFile(transcriptPath);
+    if (usage !== null) {
+      return usage;
+    }
+
+    // 如果文件不存在，尝试从项目历史中查找
+    try {
+      await fs.access(transcriptPath);
+    } catch {
+      // 文件不存在，查找项目历史
+      return await tryFindUsageFromProjectHistory(transcriptPath);
+    }
+
+    return null;
+  } catch (error) {
+    return null;
+  }
+}
+
+// 尝试解析单个转录文件
+async function tryParseTranscriptFile(transcriptPath) {
+  const fs = require("fs").promises;
+
+  try {
     const fileContent = await fs.readFile(transcriptPath, "utf8");
-    const lines = fileContent.trim().split("\n");
+    const lines = fileContent
+      .trim()
+      .split("\n")
+      .filter((line) => line.trim());
 
     if (lines.length === 0) {
       return null;
     }
 
-    // 解析最后一行JSON
+    // 检查最后一行是否是 summary
     const lastLine = lines[lines.length - 1].trim();
     const lastEntry = JSON.parse(lastLine);
 
-    // 如果是summary类型，查找usage
     if (lastEntry.type === "summary" && lastEntry.leafUuid) {
-      // 在所有行中查找对应的leafUuid
-      for (let i = lines.length - 2; i >= 0; i--) {
-        const entry = JSON.parse(lines[i].trim());
-        if (entry.leafUuid === lastEntry.leafUuid) {
-          if (entry.message && entry.message.usage) {
-            return calculateUsageTokens(entry.message.usage);
-          }
-          break;
-        }
-      }
+      // 处理 summary 情况：通过 leafUuid 查找
+      const projectDir = require("path").dirname(transcriptPath);
+      return await findUsageByLeafUuid(lastEntry.leafUuid, projectDir);
     }
 
-    // 查找最新的assistant消息
+    // 正常情况：查找最后的 assistant 消息
     for (let i = lines.length - 1; i >= 0; i--) {
       const line = lines[i].trim();
       if (!line) continue;
 
-      const entry = JSON.parse(line);
-      if (entry.type === "assistant" && entry.message) {
-        if (entry.message.usage) {
+      try {
+        const entry = JSON.parse(line);
+        if (
+          entry.type === "assistant" &&
+          entry.message &&
+          entry.message.usage
+        ) {
           return calculateUsageTokens(entry.message.usage);
         }
+      } catch {
+        continue;
+      }
+    }
+
+    return null;
+  } catch (error) {
+    return null;
+  }
+}
+
+// 通过 leafUuid 查找 usage
+async function findUsageByLeafUuid(leafUuid, projectDir) {
+  const fs = require("fs").promises;
+  const path = require("path");
+
+  try {
+    const entries = await fs.readdir(projectDir);
+
+    for (const entry of entries) {
+      const filePath = path.join(projectDir, entry);
+      const stat = await fs.stat(filePath);
+
+      if (stat.isFile() && path.extname(filePath) === ".jsonl") {
+        const usage = await searchUuidInFile(filePath, leafUuid);
+        if (usage !== null) {
+          return usage;
+        }
+      }
+    }
+
+    return null;
+  } catch (error) {
+    return null;
+  }
+}
+
+// 在文件中搜索指定的 UUID
+async function searchUuidInFile(filePath, targetUuid) {
+  const fs = require("fs").promises;
+
+  try {
+    const fileContent = await fs.readFile(filePath, "utf8");
+    const lines = fileContent
+      .trim()
+      .split("\n")
+      .filter((line) => line.trim());
+
+    // 查找目标 UUID 的消息
+    for (const line of lines) {
+      try {
+        const entry = JSON.parse(line.trim());
+
+        if (entry.uuid === targetUuid) {
+          // 找到目标消息
+          if (
+            entry.type === "assistant" &&
+            entry.message &&
+            entry.message.usage
+          ) {
+            return calculateUsageTokens(entry.message.usage);
+          } else if (entry.type === "user" && entry.parentUuid) {
+            // 用户消息，需要查找父 assistant 消息
+            return await findAssistantMessageByUuid(lines, entry.parentUuid);
+          }
+          break;
+        }
+      } catch {
+        continue;
+      }
+    }
+
+    return null;
+  } catch (error) {
+    return null;
+  }
+}
+
+// 通过 UUID 查找 assistant 消息
+async function findAssistantMessageByUuid(lines, targetUuid) {
+  for (const line of lines) {
+    try {
+      const entry = JSON.parse(line.trim());
+
+      if (entry.uuid === targetUuid && entry.type === "assistant") {
+        if (entry.message && entry.message.usage) {
+          return calculateUsageTokens(entry.message.usage);
+        }
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  return null;
+}
+
+// 从项目历史中查找最近的 usage
+async function tryFindUsageFromProjectHistory(transcriptPath) {
+  const fs = require("fs").promises;
+  const path = require("path");
+
+  try {
+    const projectDir = path.dirname(transcriptPath);
+    const entries = await fs.readdir(projectDir);
+
+    // 收集所有 .jsonl 文件
+    const sessionFiles = [];
+    for (const entry of entries) {
+      const filePath = path.join(projectDir, entry);
+      const stat = await fs.stat(filePath);
+
+      if (stat.isFile() && path.extname(filePath) === ".jsonl") {
+        sessionFiles.push({
+          path: filePath,
+          mtime: stat.mtime,
+        });
+      }
+    }
+
+    if (sessionFiles.length === 0) {
+      return null;
+    }
+
+    // 按修改时间排序（最新的在前）
+    sessionFiles.sort((a, b) => b.mtime - a.mtime);
+
+    // 尝试从最近的会话文件中查找
+    for (const file of sessionFiles) {
+      const usage = await tryParseTranscriptFile(file.path);
+      if (usage !== null) {
+        return usage;
       }
     }
 
@@ -220,23 +376,42 @@ async function parseTranscriptUsage(transcriptPath) {
 
 // 计算token使用量（参考ccline的normalize逻辑）
 function calculateUsageTokens(usage) {
-  // 根据不同格式计算display tokens
+  // 合并 input tokens (优先级: input_tokens > prompt_tokens)
+  const inputTokens = usage.input_tokens || usage.prompt_tokens || 0;
+
+  // 合并 output tokens (优先级: output_tokens > completion_tokens)
+  const outputTokens = usage.output_tokens || usage.completion_tokens || 0;
+
+  // 合并 cache creation tokens (优先级: Anthropic > OpenAI)
+  const cacheCreation =
+    usage.cache_creation_input_tokens ||
+    usage.cache_creation_prompt_tokens ||
+    0;
+
+  // 合并 cache read tokens (优先级: Anthropic > OpenAI > nested format)
+  const cacheRead =
+    usage.cache_read_input_tokens ||
+    usage.cache_read_prompt_tokens ||
+    usage.cached_tokens ||
+    (usage.prompt_tokens_details &&
+      usage.prompt_tokens_details.cached_tokens) ||
+    0;
+
+  // 计算上下文窗口使用的 tokens
+  // 包括：input + output + cache_creation + cache_read
+  const contextTokens = inputTokens + outputTokens + cacheCreation + cacheRead;
+
+  // 如果有 context_tokens，优先使用
+  if (contextTokens > 0) {
+    return contextTokens;
+  }
+
+  // 如果有 total_tokens，使用它
   if (usage.total_tokens) {
     return usage.total_tokens;
-  } else if (usage.input_tokens && usage.output_tokens) {
-    return usage.input_tokens + usage.output_tokens;
-  } else if (usage.context_tokens) {
-    return usage.context_tokens;
-  } else if (
-    usage.cache_creation_input_tokens &&
-    usage.cache_read_input_tokens
-  ) {
-    return (
-      usage.input_tokens +
-      usage.cache_creation_input_tokens +
-      usage.cache_read_input_tokens
-    );
   }
+
+  // 最后的回退
   return 0;
 }
 
@@ -278,6 +453,7 @@ program
       if (tokens >= 1000000) {
         return `${Math.round(tokens / 100000) / 10}M`;
       } else if (tokens >= 1000) {
+        // 正确的格式化：保留一位小数
         return `${Math.round(tokens / 100) / 10}k`;
       }
       return `${tokens}`;
@@ -407,7 +583,9 @@ program
 
       // 套餐到期时间（如果可用）
       if (expiry) {
-        statusLine += ` | ${chalk.gray('剩余:')} ${chalk.white(expiry.daysRemaining + '天')}`;
+        statusLine += ` | ${chalk.gray("剩余:")} ${chalk.white(
+          expiry.daysRemaining + "天"
+        )}`;
       }
 
       // 单次输出后就退出
