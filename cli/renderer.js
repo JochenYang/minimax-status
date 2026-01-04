@@ -109,7 +109,7 @@ class Renderer {
       parts.push(`${chalk.dim(configCounts.mcpCount + ' MCPs')}`);
     }
     if (sessionDuration) {
-      parts.push(`${chalk.dim('⏱ ' + sessionDuration)}`);
+      parts.push(`${chalk.dim('⏱ 会话 ' + sessionDuration)}`);
     }
 
     if (expiry) {
