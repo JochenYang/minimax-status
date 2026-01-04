@@ -237,8 +237,9 @@ program
       const displayDir = currentDir || cliCurrentDir || "";
 
       let configCounts = { claudeMdCount: 0, rulesCount: 0, mcpCount: 0, hooksCount: 0 };
-      if (stdinData && stdinData.workspace) {
-        configCounts = await configCounter.count(stdinData.workspace);
+      const workspacePath = stdinData?.workspace?.current_directory;
+      if (workspacePath && typeof workspacePath === 'string') {
+        configCounts = await configCounter.count(workspacePath);
       }
 
       let sessionDuration = null;

@@ -12,7 +12,7 @@ class Renderer {
       return `${(tokens / 1000000).toFixed(1)}M`;
     }
     if (tokens >= 1000) {
-      return `${Math.round(tokens / 100)}0`.replace(/0$/, '');
+      return `${(tokens / 1000).toFixed(1)}k`;
     }
     return tokens.toString();
   }
@@ -89,7 +89,7 @@ class Renderer {
       const contextPercent = Math.round((contextUsage / contextSize) * 100);
       const contextColor = this.getStatusColor(contextPercent);
       parts.push(`${contextColor('⚡')} ${contextColor(contextPercent + '%')}`);
-      parts.push(`${chalk.gray('·')} ${chalk.white(this.formatTokens(contextUsage) + '/' + this.formatContextSize(contextSize))}`);
+      parts.push(`${chalk.white(this.formatTokens(contextUsage) + '/' + this.formatContextSize(contextSize))}`);
     } else {
       parts.push(`${chalk.gray(this.formatContextSize(contextSize))}`);
     }

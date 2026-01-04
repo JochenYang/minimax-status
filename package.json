@@ -1,6 +1,6 @@
 {
   "name": "minimax-status",
-  "version": "1.0.18",
+  "version": "1.0.19",
   "description": "MiniMax Claude Code 使用状态监控工具",
   "bin": {
     "minimax-status": "cli/index.js",
