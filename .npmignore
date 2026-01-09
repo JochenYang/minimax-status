@@ -1,6 +1,6 @@
 # 测试文件
 cli/example.js
-vscode-extension/test/
+vscode-extension/
 
 # 开发文档
 INSTALL.md
