@@ -4,10 +4,54 @@ const { default: boxen } = require('boxen');
 const { default: stringWidth } = require('string-width');
 
 class StatusBar {
-  constructor(data) {
+  constructor(data, usageStats = null, api = null) {
     this.data = data;
+    this.usageStats = usageStats;
+    this.api = api;
     this.totalWidth = 63; // 总宽度包括边框
     this.borderWidth = 4; // '│ ' (2) + ' │' (2) = 4
+  }
+
+  // 格式化数字
+  formatNumber(num) {
+    if (this.api) {
+      return this.api.formatNumber(num);
+    }
+    if (num >= 100000000) {
+      return (num / 100000000).toFixed(1).replace(/\.0$/, "") + "亿";
+    }
+    if (num >= 10000) {
+      return (num / 10000).toFixed(1).replace(/\.0$/, "") + "万";
+    }
+    return num.toLocaleString("zh-CN");
+  }
+
+  // 渲染消耗统计表格
+  renderConsumptionStats() {
+    if (!this.usageStats) {
+      return '';
+    }
+
+    const lines = [];
+    lines.push('');
+    lines.push(chalk.bold('📊 Token 消耗统计'));
+
+    // 计算表格宽度
+    const leftWidth = 12; // "昨日消耗:  "
+    const rightWidth = 15; // "1732.1万  "
+    const padding = this.totalWidth - this.borderWidth - leftWidth - rightWidth;
+
+    const pad = ' '.repeat(Math.max(0, padding));
+
+    const formatLine = (label, value) => {
+      return `│ ${chalk.cyan(label)}${pad}${this.formatNumber(value)}`;
+    };
+
+    lines.push(formatLine('昨日消耗: ', this.usageStats.lastDayUsage));
+    lines.push(formatLine('近7天消耗: ', this.usageStats.weeklyUsage));
+    lines.push(formatLine('套餐总消耗: ', this.usageStats.planTotalUsage));
+
+    return lines.join('\n');
   }
 
   // 辅助函数：填充内容到正确长度，处理 chalk 代码和中文字符
@@ -70,6 +114,11 @@ class StatusBar {
     if (expiry) {
       const expiryText = `${expiry.date} (${expiry.text})`;
       contentLines.push(`${chalk.cyan('套餐到期:')} ${expiryText}`);
+    }
+
+    // 添加消耗统计（如果有数据）
+    if (this.usageStats) {
+      contentLines.push(this.renderConsumptionStats());
     }
 
     contentLines.push('');

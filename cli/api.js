@@ -142,6 +142,134 @@ class MinimaxAPI {
     }
   }
 
+  /**
+   * Get billing records from the account/amount API
+   * @param {number} page - Page number (1-based)
+   * @param {number} limit - Number of records per page (max 100)
+   * @returns {Promise<Object>} Billing records response
+   */
+  async getBillingRecords(page = 1, limit = 100) {
+    try {
+      const response = await axios.get(
+        `https://www.minimaxi.com/account/amount`,
+        {
+          params: {
+            page: page,
+            limit: limit,
+            aggregate: false,
+            GroupId: this.groupId,
+          },
+          headers: {
+            Authorization: `Bearer ${this.token}`,
+            Accept: "application/json",
+          },
+          timeout: 10000,
+          httpsAgent,
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      throw new Error(`账单 API 请求失败: ${error.message}`);
+    }
+  }
+
+  /**
+   * Fetch all billing records with pagination
+   * @param {number} maxPages - Maximum number of pages to fetch
+   * @returns {Promise<Array>} All billing records
+   */
+  async getAllBillingRecords(maxPages = 10) {
+    const allRecords = [];
+
+    for (let page = 1; page <= maxPages; page++) {
+      try {
+        const response = await this.getBillingRecords(page, 100);
+        const records = response.charge_records || [];
+
+        if (records.length === 0) {
+          break;
+        }
+
+        allRecords.push(...records);
+
+        if (records.length < 100) {
+          break;
+        }
+      } catch (error) {
+        console.error(`Failed to fetch billing records page ${page}:`, error.message);
+        break;
+      }
+    }
+
+    return allRecords;
+  }
+
+  /**
+   * Calculate usage statistics from billing records
+   * @param {Array} records - Billing records from account/amount API
+   * @param {number} planStartTime - Plan start time in milliseconds
+   * @param {number} planEndTime - Plan end time in milliseconds
+   * @returns {Object} Usage statistics
+   */
+  calculateUsageStats(records, planStartTime, planEndTime) {
+    const now = Date.now();
+
+    // 账单记录是秒级时间戳，需要统一转换为毫秒
+    const planStartMs = planStartTime;
+    const planEndMs = planEndTime;
+
+    // 昨日（0点到现在）或者取最近一次账单的日期
+    // 账单记录不是实时的，当日消耗要明天才显示，所以显示"昨日"
+    const todayStart = new Date().setHours(0, 0, 0, 0);
+    const yesterdayStart = todayStart - 24 * 60 * 60 * 1000;
+    const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
+
+    const stats = {
+      lastDayUsage: 0,
+      weeklyUsage: 0,
+      planTotalUsage: 0,
+    };
+
+    for (const record of records) {
+      const tokens = parseInt(record.consume_token, 10) || 0;
+      // 账单记录的 created_at 是秒级时间戳，转换为毫秒
+      const createdAt = (record.created_at || 0) * 1000;
+
+      // 昨日消耗（从昨日0点到现在）
+      if (createdAt >= yesterdayStart && createdAt < todayStart) {
+        stats.lastDayUsage += tokens;
+      }
+
+      // 近7天消耗
+      if (createdAt >= weekAgo) {
+        stats.weeklyUsage += tokens;
+      }
+
+      // 套餐期内总消耗
+      if (createdAt >= planStartMs && createdAt <= planEndMs) {
+        stats.planTotalUsage += tokens;
+      }
+    }
+
+    return stats;
+  }
+
+  /**
+   * Format number to human readable format (万, 亿)
+   * @param {number} num - Number to format
+   * @returns {string} Formatted string
+   */
+  formatNumber(num) {
+    if (num >= 100000000) {
+      return (num / 100000000).toFixed(1).replace(/\.0$/, "") + "亿";
+    }
+    if (num >= 10000) {
+      return (num / 10000).toFixed(1).replace(/\.0$/, "") + "万";
+    }
+    return num.toLocaleString("zh-CN");
+  }
+
   // 清除缓存
   clearCache() {
     this.cache = {
