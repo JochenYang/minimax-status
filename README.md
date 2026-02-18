@@ -114,6 +114,7 @@ npm run package
    ```json
    {
      "statusLine": {
+       “type”: "command",
        "command": "minimax statusline"
      }
    }
@@ -241,6 +242,7 @@ Claude Code 只需要配置状态栏命令：
 // ~/.claude/settings.json
 {
   "statusLine": {
+    "type": "command",
     "command": "minimax statusline"
   }
 }
