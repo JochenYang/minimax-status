@@ -62,6 +62,13 @@
           "default": "",
           "description": "选择要显示的模型（留空则使用第一个模型）",
           "order": 5
+        },
+        "minimaxStatus.overseasDisplay": {
+          "type": "string",
+          "enum": ["none", "overseas", "both"],
+          "default": "none",
+          "description": "海外用量显示模式",
+          "order": 6
         }
       }
     }
