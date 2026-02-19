@@ -731,6 +731,27 @@ function updateStatusBar(statusBarItem, data, usageStats, api, overseasData = nu
 
   const t = statusI18n[language] || statusI18n["zh-CN"];
 
+  // Helper to translate remaining time text
+  const translateRemainingText = (text) => {
+    if (language === 'en-US') {
+      return text
+        .replace(/小时后重置/, 'hours until reset')
+        .replace(/分钟后重置/, 'minutes until reset');
+    }
+    return text;
+  };
+
+  // Helper to translate expiry text
+  const translateExpiryText = (text) => {
+    if (language === 'en-US') {
+      return text
+        .replace(/还剩 (\d+) 天/, '$1 days remaining')
+        .replace(/今天到期/, 'expires today')
+        .replace(/已过期 (\d+) 天/, 'expired $1 days ago');
+    }
+    return text;
+  };
+
   // 关键修复：设置状态栏命令为刷新
   statusBarItem.command = "minimaxStatus.refresh";
 
@@ -774,7 +795,7 @@ function updateStatusBar(statusBarItem, data, usageStats, api, overseasData = nu
   tooltip.push(`[${t.domestic}]`);
   tooltip.push(`${t.model}: ${data.modelName}`);
   tooltip.push(`${t.usageProgress}: ${data.usage.percentage}% (${formatNumber(data.usage.used)}/${formatNumber(data.usage.total)})`);
-  tooltip.push(`${t.remainingTime}: ${data.remaining.text}`);
+  tooltip.push(`${t.remainingTime}: ${translateRemainingText(data.remaining.text)}`);
   tooltip.push(`${t.timeWindow}: ${data.timeWindow.start}-${data.timeWindow.end}(${data.timeWindow.timezone})`);
 
   // Add overseas usage info if available
@@ -782,7 +803,7 @@ function updateStatusBar(statusBarItem, data, usageStats, api, overseasData = nu
     tooltip.push(``, `[${t.overseas}]`);
     tooltip.push(`${t.model}: ${overseasData.modelName}`);
     tooltip.push(`${t.usageProgress}: ${overseasData.usage.percentage}% (${formatNumber(overseasData.usage.used)}/${formatNumber(overseasData.usage.total)})`);
-    tooltip.push(`${t.remainingTime}: ${overseasData.remaining.text}`);
+    tooltip.push(`${t.remainingTime}: ${translateRemainingText(overseasData.remaining.text)}`);
   }
 
   // Add billing stats if available
@@ -795,7 +816,7 @@ function updateStatusBar(statusBarItem, data, usageStats, api, overseasData = nu
 
   // Add expiry information if available
   if (expiry) {
-    tooltip.push(`${t.expiry}: ${expiry.date} (${expiry.text})`);
+    tooltip.push(`${t.expiry}: ${expiry.date} (${translateExpiryText(expiry.text)})`);
   }
 
   tooltip.push("", t.clickToRefresh);
