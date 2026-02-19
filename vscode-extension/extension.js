@@ -20,11 +20,28 @@ function activate(context) {
 
     const updateStatus = async () => {
       try {
+        // Refresh API config to get latest settings
+        api.refreshConfig();
+        const config = vscode.workspace.getConfiguration("minimaxStatus");
+        const overseasDisplay = config.get("overseasDisplay") || "none";
+
+        // Get domestic data
         const [apiData, subscriptionData] = await Promise.all([
           api.getUsageStatus(),
-          api.getSubscriptionDetails().catch(() => null) // Silent fail for subscription API
+          api.getSubscriptionDetails().catch(() => null)
         ]);
         const usageData = api.parseUsageData(apiData, subscriptionData);
+
+        // Get overseas data if needed
+        let overseasUsageData = null;
+        if (overseasDisplay === 'overseas' || overseasDisplay === 'both') {
+          try {
+            const overseasApiData = await api.getOverseasUsageStatus();
+            overseasUsageData = api.parseUsageData(overseasApiData, null);
+          } catch (overseasError) {
+            console.error("Failed to fetch overseas data:", overseasError.message);
+          }
+        }
 
         // Fetch billing data for usage statistics (with caching)
         const now = Date.now();
@@ -76,7 +93,7 @@ function activate(context) {
           );
         }
 
-        updateStatusBar(statusBarItem, usageData, usageStats, api);
+        updateStatusBar(statusBarItem, usageData, usageStats, api, overseasUsageData, overseasDisplay);
       } catch (error) {
         console.error("获取状态失败:", error.message);
         statusBarItem.text = "$(warning) MiniMax";
@@ -580,12 +597,23 @@ async function showSettingsWebView(context, api, updateStatus) {
   return panel;
 }
 
-function updateStatusBar(statusBarItem, data, usageStats, api) {
-  const { usage, modelName, remaining, expiry, planTimeWindow } = data;
+function updateStatusBar(statusBarItem, data, usageStats, api, overseasData = null, displayMode = 'none') {
   const formatNumber = (num) => api.formatNumber(num);
 
   // 关键修复：设置状态栏命令为刷新
   statusBarItem.command = "minimaxStatus.refresh";
+
+  // Determine which data to display based on mode
+  let displayData;
+  if (displayMode === 'overseas' && overseasData) {
+    displayData = overseasData;
+  } else if (displayMode === 'both' && overseasData) {
+    displayData = data;
+  } else {
+    displayData = data;
+  }
+
+  const { usage, modelName, remaining, expiry, planTimeWindow } = displayData;
 
   // Set status bar text with color
   const percentage = usage.percentage;
@@ -599,21 +627,40 @@ function updateStatusBar(statusBarItem, data, usageStats, api) {
     statusBarItem.color = new vscode.ThemeColor("errorForeground");
   }
 
-  // 状态栏只显示用量百分比，不显示消耗统计
-  statusBarItem.text = `$(clock) ${modelName} ${percentage}%`;
+  // Build status bar text based on display mode
+  if (displayMode === 'both' && overseasData) {
+    const domesticPercent = data.usage.percentage;
+    const overseasPercent = overseasData.usage.percentage;
+    statusBarItem.text = `$(clock) 国内${domesticPercent}% / 海外${overseasPercent}%`;
+  } else {
+    statusBarItem.text = `$(clock) ${modelName} ${percentage}%`;
+  }
 
   // Build tooltip
-  const tooltip = [
-    `模型: ${modelName}`,
-    `使用进度: ${usage.percentage}% (${formatNumber(usage.used)}/${formatNumber(usage.total)})`,
-    `剩余时间: ${remaining.text}`,
-    `时间窗口: ${data.timeWindow.start}-${data.timeWindow.end}(${data.timeWindow.timezone})`,
-    ``,
-    `=== Token 消耗统计 ===`,
-    `昨日消耗: ${formatNumber(usageStats.lastDayUsage)}`,
-    `近7天消耗: ${formatNumber(usageStats.weeklyUsage)}`,
-    `套餐总消耗: ${formatNumber(usageStats.planTotalUsage)}`,
-  ];
+  const tooltip = [];
+
+  // Add domestic usage info
+  tooltip.push(`[国内版]`);
+  tooltip.push(`模型: ${data.modelName}`);
+  tooltip.push(`使用进度: ${data.usage.percentage}% (${formatNumber(data.usage.used)}/${formatNumber(data.usage.total)})`);
+  tooltip.push(`剩余时间: ${data.remaining.text}`);
+  tooltip.push(`时间窗口: ${data.timeWindow.start}-${data.timeWindow.end}(${data.timeWindow.timezone})`);
+
+  // Add overseas usage info if available
+  if (overseasData) {
+    tooltip.push(``, `[海外版]`);
+    tooltip.push(`模型: ${overseasData.modelName}`);
+    tooltip.push(`使用进度: ${overseasData.usage.percentage}% (${formatNumber(overseasData.usage.used)}/${formatNumber(overseasData.usage.total)})`);
+    tooltip.push(`剩余时间: ${overseasData.remaining.text}`);
+  }
+
+  // Add billing stats if available
+  if (usageStats.lastDayUsage > 0 || usageStats.weeklyUsage > 0) {
+    tooltip.push(``, `=== Token 消耗统计 ===`);
+    tooltip.push(`昨日消耗: ${formatNumber(usageStats.lastDayUsage)}`);
+    tooltip.push(`近7天消耗: ${formatNumber(usageStats.weeklyUsage)}`);
+    tooltip.push(`套餐总消耗: ${formatNumber(usageStats.planTotalUsage)}`);
+  }
 
   // Add expiry information if available
   if (expiry) {

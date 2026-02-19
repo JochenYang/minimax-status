@@ -24,6 +24,10 @@ class MinimaxAPI {
     this.token = config.get("token");
     this.groupId = config.get("groupId");
     this.selectedModelName = config.get("modelName");
+    // Load overseas configuration
+    this.overseasToken = config.get("overseasToken");
+    this.overseasGroupId = config.get("overseasGroupId");
+    this.overseasDisplay = config.get("overseasDisplay") || "none";
   }
 
   async getUsageStatus() {
@@ -54,17 +58,17 @@ class MinimaxAPI {
   }
 
   async getOverseasUsageStatus() {
-    if (!this.token || !this.groupId) {
-      throw new Error("请在设置中配置 MiniMax 访问令牌和组 ID");
+    if (!this.overseasToken || !this.overseasGroupId) {
+      throw new Error("请在设置中配置海外 API Key 和 Group ID");
     }
 
     try {
       const response = await axios.get(
         `https://www.minimax.io/v1/api/openplatform/coding_plan/remains`,
         {
-          params: { GroupId: this.groupId },
+          params: { GroupId: this.overseasGroupId },
           headers: {
-            Authorization: `Bearer ${this.token}`,
+            Authorization: `Bearer ${this.overseasToken}`,
             Accept: "application/json",
           },
         }
