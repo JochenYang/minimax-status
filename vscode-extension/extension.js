@@ -186,6 +186,8 @@ async function showSettingsWebView(context, api, updateStatus) {
   const currentShowTooltip = config.get("showTooltip") ?? true;
   const currentModelName = config.get("modelName") || "";
   const currentOverseasDisplay = config.get("overseasDisplay") || "none";
+  const currentOverseasToken = config.get("overseasToken") || "";
+  const currentOverseasGroupId = config.get("overseasGroupId") || "";
 
   // Fetch available models if token and groupId are configured
   let availableModels = [];
@@ -338,20 +340,37 @@ async function showSettingsWebView(context, api, updateStatus) {
         <div class="container">
             <h1>MiniMax 设置</h1>
 
-            <!-- 认证信息卡片 -->
+            <!-- 国内账号卡片 -->
             <div class="card">
-                <h2>认证信息</h2>
+                <h2>国内账号</h2>
                 <div class="form-group">
                     <label for="token">API Key</label>
-                    <input type="text" id="token" placeholder="请输入 API Key" value="${currentToken}">
-                    <div class="info-text">您的 MiniMax API 访问令牌</div>
+                    <input type="text" id="token" placeholder="请输入国内 API Key" value="${currentToken}">
+                    <div class="info-text">platform.minimaxi.com 的 API Key</div>
                     <div class="error" id="token-error"></div>
                 </div>
                 <div class="form-group">
                     <label for="groupId">GroupID</label>
                     <input type="text" id="groupId" placeholder="请输入 groupID" value="${currentGroupId}">
-                    <div class="info-text">您的 MiniMax groupID</div>
+                    <div class="info-text">国内账号的 GroupID</div>
                     <div class="error" id="groupId-error"></div>
+                </div>
+            </div>
+
+            <!-- 海外账号卡片 -->
+            <div class="card">
+                <h2>海外账号</h2>
+                <div class="form-group">
+                    <label for="overseasToken">API Key</label>
+                    <input type="text" id="overseasToken" placeholder="请输入海外 API Key" value="${currentOverseasToken}">
+                    <div class="info-text">api.minimax.io 的 API Key（用于显示海外用量）</div>
+                    <div class="error" id="overseasToken-error"></div>
+                </div>
+                <div class="form-group">
+                    <label for="overseasGroupId">GroupID</label>
+                    <input type="text" id="overseasGroupId" placeholder="请输入 groupID" value="${currentOverseasGroupId}">
+                    <div class="info-text">海外账号的 GroupID</div>
+                    <div class="error" id="overseasGroupId-error"></div>
                 </div>
             </div>
 
@@ -405,6 +424,8 @@ async function showSettingsWebView(context, api, updateStatus) {
             document.getElementById('saveBtn').addEventListener('click', () => {
                 const token = document.getElementById('token').value.trim();
                 const groupId = document.getElementById('groupId').value.trim();
+                const overseasToken = document.getElementById('overseasToken').value.trim();
+                const overseasGroupId = document.getElementById('overseasGroupId').value.trim();
                 const interval = parseInt(document.getElementById('interval').value, 10);
                 const showTooltip = document.getElementById('showTooltip').checked;
                 const modelName = document.getElementById('modelName').value;
@@ -413,6 +434,8 @@ async function showSettingsWebView(context, api, updateStatus) {
                 // Clear previous errors
                 document.getElementById('token-error').textContent = '';
                 document.getElementById('groupId-error').textContent = '';
+                document.getElementById('overseasToken-error').textContent = '';
+                document.getElementById('overseasGroupId-error').textContent = '';
 
                 // Validate inputs
                 let hasError = false;
@@ -425,6 +448,18 @@ async function showSettingsWebView(context, api, updateStatus) {
                 if (!groupId) {
                     document.getElementById('groupId-error').textContent = '请输入 groupID';
                     hasError = true;
+                }
+
+                // Validate overseas credentials based on display mode
+                if (overseasDisplay === 'overseas' || overseasDisplay === 'both') {
+                    if (!overseasToken) {
+                        document.getElementById('overseasToken-error').textContent = '请输入海外 API Key';
+                        hasError = true;
+                    }
+                    if (!overseasGroupId) {
+                        document.getElementById('overseasGroupId-error').textContent = '请输入海外 groupID';
+                        hasError = true;
+                    }
                 }
 
                 if (interval < 5 || interval > 300) {
@@ -441,6 +476,8 @@ async function showSettingsWebView(context, api, updateStatus) {
                     command: 'saveSettings',
                     token: token,
                     groupId: groupId,
+                    overseasToken: overseasToken,
+                    overseasGroupId: overseasGroupId,
                     interval: interval,
                     showTooltip: showTooltip,
                     modelName: modelName,
@@ -505,6 +542,20 @@ async function showSettingsWebView(context, api, updateStatus) {
             config.update(
               "overseasDisplay",
               message.overseasDisplay,
+              vscode.ConfigurationTarget.Global
+            );
+          }
+          if (message.overseasToken !== undefined) {
+            config.update(
+              "overseasToken",
+              message.overseasToken,
+              vscode.ConfigurationTarget.Global
+            );
+          }
+          if (message.overseasGroupId !== undefined) {
+            config.update(
+              "overseasGroupId",
+              message.overseasGroupId,
               vscode.ConfigurationTarget.Global
             );
           }

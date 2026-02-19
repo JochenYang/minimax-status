@@ -69,6 +69,18 @@
           "default": "none",
           "description": "海外用量显示模式",
           "order": 6
+        },
+        "minimaxStatus.overseasToken": {
+          "type": "string",
+          "default": "",
+          "description": "海外版 API Key",
+          "order": 7
+        },
+        "minimaxStatus.overseasGroupId": {
+          "type": "string",
+          "default": "",
+          "description": "海外版 group ID",
+          "order": 8
         }
       }
     }
