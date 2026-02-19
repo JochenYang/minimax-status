@@ -53,6 +53,32 @@ class MinimaxAPI {
     }
   }
 
+  async getOverseasUsageStatus() {
+    if (!this.token || !this.groupId) {
+      throw new Error("请在设置中配置 MiniMax 访问令牌和组 ID");
+    }
+
+    try {
+      const response = await axios.get(
+        `https://www.minimax.io/v1/api/openplatform/coding_plan/remains`,
+        {
+          params: { GroupId: this.groupId },
+          headers: {
+            Authorization: `Bearer ${this.token}`,
+            Accept: "application/json",
+          },
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      if (error.response?.status === 401) {
+        throw new Error("无效的令牌或未授权。请检查您的凭据。");
+      }
+      throw new Error(`海外 API 请求失败: ${error.message}`);
+    }
+  }
+
   async getSubscriptionDetails() {
     if (!this.token || !this.groupId) {
       throw new Error("请在设置中配置 MiniMax 访问令牌和组 ID");
