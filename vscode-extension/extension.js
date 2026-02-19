@@ -24,6 +24,7 @@ function activate(context) {
         api.refreshConfig();
         const config = vscode.workspace.getConfiguration("minimaxStatus");
         const overseasDisplay = config.get("overseasDisplay") || "none";
+        const language = config.get("language") || "zh-CN";
 
         // Get domestic data
         const [apiData, subscriptionData] = await Promise.all([
@@ -93,11 +94,13 @@ function activate(context) {
           );
         }
 
-        updateStatusBar(statusBarItem, usageData, usageStats, api, overseasUsageData, overseasDisplay);
+        updateStatusBar(statusBarItem, usageData, usageStats, api, overseasUsageData, overseasDisplay, language);
       } catch (error) {
         console.error("获取状态失败:", error.message);
+        const errorText = language === 'en-US' ? 'Error' : '错误';
+        const clickConfig = language === 'en-US' ? 'Click to configure' : '点击配置';
         statusBarItem.text = "$(warning) MiniMax";
-        statusBarItem.tooltip = `错误: ${error.message}\n点击配置`;
+        statusBarItem.tooltip = `${errorText}: ${error.message}\n${clickConfig}`;
         statusBarItem.color = new vscode.ThemeColor("errorForeground");
       }
     };
@@ -691,8 +694,42 @@ async function showSettingsWebView(context, api, updateStatus) {
   return panel;
 }
 
-function updateStatusBar(statusBarItem, data, usageStats, api, overseasData = null, displayMode = 'none') {
+function updateStatusBar(statusBarItem, data, usageStats, api, overseasData = null, displayMode = 'none', language = 'zh-CN') {
   const formatNumber = (num) => api.formatNumber(num);
+
+  // Status bar i18n
+  const statusI18n = {
+    "zh-CN": {
+      domestic: "国内",
+      overseas: "海外",
+      model: "模型",
+      usageProgress: "使用进度",
+      remainingTime: "剩余时间",
+      timeWindow: "时间窗口",
+      billingStats: "=== Token 消耗统计 ===",
+      yesterday: "昨日消耗",
+      last7Days: "近7天消耗",
+      totalUsage: "套餐总消耗",
+      expiry: "套餐到期",
+      clickToRefresh: "点击刷新状态",
+    },
+    "en-US": {
+      domestic: "Domestic",
+      overseas: "Overseas",
+      model: "Model",
+      usageProgress: "Usage",
+      remainingTime: "Remaining",
+      timeWindow: "Time Window",
+      billingStats: "=== Token Usage Stats ===",
+      yesterday: "Yesterday",
+      last7Days: "Last 7 days",
+      totalUsage: "Total usage",
+      expiry: "Expires",
+      clickToRefresh: "Click to refresh",
+    }
+  };
+
+  const t = statusI18n[language] || statusI18n["zh-CN"];
 
   // 关键修复：设置状态栏命令为刷新
   statusBarItem.command = "minimaxStatus.refresh";
@@ -725,7 +762,7 @@ function updateStatusBar(statusBarItem, data, usageStats, api, overseasData = nu
   if (displayMode === 'both' && overseasData) {
     const domesticPercent = data.usage.percentage;
     const overseasPercent = overseasData.usage.percentage;
-    statusBarItem.text = `$(clock) 国内${domesticPercent}% / 海外${overseasPercent}%`;
+    statusBarItem.text = `$(clock) ${t.domestic}${domesticPercent}% / ${t.overseas}${overseasPercent}%`;
   } else {
     statusBarItem.text = `$(clock) ${modelName} ${percentage}%`;
   }
@@ -734,34 +771,34 @@ function updateStatusBar(statusBarItem, data, usageStats, api, overseasData = nu
   const tooltip = [];
 
   // Add domestic usage info
-  tooltip.push(`[国内版]`);
-  tooltip.push(`模型: ${data.modelName}`);
-  tooltip.push(`使用进度: ${data.usage.percentage}% (${formatNumber(data.usage.used)}/${formatNumber(data.usage.total)})`);
-  tooltip.push(`剩余时间: ${data.remaining.text}`);
-  tooltip.push(`时间窗口: ${data.timeWindow.start}-${data.timeWindow.end}(${data.timeWindow.timezone})`);
+  tooltip.push(`[${t.domestic}]`);
+  tooltip.push(`${t.model}: ${data.modelName}`);
+  tooltip.push(`${t.usageProgress}: ${data.usage.percentage}% (${formatNumber(data.usage.used)}/${formatNumber(data.usage.total)})`);
+  tooltip.push(`${t.remainingTime}: ${data.remaining.text}`);
+  tooltip.push(`${t.timeWindow}: ${data.timeWindow.start}-${data.timeWindow.end}(${data.timeWindow.timezone})`);
 
   // Add overseas usage info if available
   if (overseasData) {
-    tooltip.push(``, `[海外版]`);
-    tooltip.push(`模型: ${overseasData.modelName}`);
-    tooltip.push(`使用进度: ${overseasData.usage.percentage}% (${formatNumber(overseasData.usage.used)}/${formatNumber(overseasData.usage.total)})`);
-    tooltip.push(`剩余时间: ${overseasData.remaining.text}`);
+    tooltip.push(``, `[${t.overseas}]`);
+    tooltip.push(`${t.model}: ${overseasData.modelName}`);
+    tooltip.push(`${t.usageProgress}: ${overseasData.usage.percentage}% (${formatNumber(overseasData.usage.used)}/${formatNumber(overseasData.usage.total)})`);
+    tooltip.push(`${t.remainingTime}: ${overseasData.remaining.text}`);
   }
 
   // Add billing stats if available
   if (usageStats.lastDayUsage > 0 || usageStats.weeklyUsage > 0) {
-    tooltip.push(``, `=== Token 消耗统计 ===`);
-    tooltip.push(`昨日消耗: ${formatNumber(usageStats.lastDayUsage)}`);
-    tooltip.push(`近7天消耗: ${formatNumber(usageStats.weeklyUsage)}`);
-    tooltip.push(`套餐总消耗: ${formatNumber(usageStats.planTotalUsage)}`);
+    tooltip.push(``, t.billingStats);
+    tooltip.push(`${t.yesterday}: ${formatNumber(usageStats.lastDayUsage)}`);
+    tooltip.push(`${t.last7Days}: ${formatNumber(usageStats.weeklyUsage)}`);
+    tooltip.push(`${t.totalUsage}: ${formatNumber(usageStats.planTotalUsage)}`);
   }
 
   // Add expiry information if available
   if (expiry) {
-    tooltip.push(`套餐到期: ${expiry.date} (${expiry.text})`);
+    tooltip.push(`${t.expiry}: ${expiry.date} (${expiry.text})`);
   }
 
-  tooltip.push("", "点击刷新状态");
+  tooltip.push("", t.clickToRefresh);
 
   statusBarItem.tooltip = tooltip.join("\n");
 }
