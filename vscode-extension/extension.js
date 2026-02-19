@@ -94,7 +94,7 @@ function activate(context) {
           );
         }
 
-        updateStatusBar(statusBarItem, usageData, usageStats, api, overseasUsageData, overseasDisplay, language);
+        updateStatusBar(statusBarItem, usageData, usageStats, overseasUsageData, overseasDisplay, language);
       } catch (error) {
         console.error("获取状态失败:", error.message);
         const errorText = language === 'en-US' ? 'Error' : '错误';
@@ -694,9 +694,7 @@ async function showSettingsWebView(context, api, updateStatus) {
   return panel;
 }
 
-function updateStatusBar(statusBarItem, data, usageStats, api, overseasData = null, displayMode = 'none', language = 'zh-CN') {
-  const formatNumber = (num) => api.formatNumber(num);
-
+function updateStatusBar(statusBarItem, data, usageStats, overseasData = null, displayMode = 'none', language = 'zh-CN') {
   // Status bar i18n
   const statusI18n = {
     "zh-CN": {
@@ -752,6 +750,27 @@ function updateStatusBar(statusBarItem, data, usageStats, api, overseasData = nu
     return text;
   };
 
+  // Helper to format number with language-appropriate units
+  const formatNumberI18n = (num) => {
+    if (language === 'en-US') {
+      if (num >= 100000000) {
+        return (num / 100000000).toFixed(1).replace(/\.0$/, "") + "B";
+      }
+      if (num >= 10000) {
+        return (num / 1000).toFixed(1).replace(/\.0$/, "") + "K";
+      }
+      return num.toLocaleString("en-US");
+    }
+    // Chinese format
+    if (num >= 100000000) {
+      return (num / 100000000).toFixed(1).replace(/\.0$/, "") + "亿";
+    }
+    if (num >= 10000) {
+      return (num / 10000).toFixed(1).replace(/\.0$/, "") + "万";
+    }
+    return num.toLocaleString("zh-CN");
+  };
+
   // 关键修复：设置状态栏命令为刷新
   statusBarItem.command = "minimaxStatus.refresh";
 
@@ -794,7 +813,7 @@ function updateStatusBar(statusBarItem, data, usageStats, api, overseasData = nu
   // Add domestic usage info
   tooltip.push(`[${t.domestic}]`);
   tooltip.push(`${t.model}: ${data.modelName}`);
-  tooltip.push(`${t.usageProgress}: ${data.usage.percentage}% (${formatNumber(data.usage.used)}/${formatNumber(data.usage.total)})`);
+  tooltip.push(`${t.usageProgress}: ${data.usage.percentage}% (${formatNumberI18n(data.usage.used)}/${formatNumberI18n(data.usage.total)})`);
   tooltip.push(`${t.remainingTime}: ${translateRemainingText(data.remaining.text)}`);
   tooltip.push(`${t.timeWindow}: ${data.timeWindow.start}-${data.timeWindow.end}(${data.timeWindow.timezone})`);
 
@@ -802,16 +821,16 @@ function updateStatusBar(statusBarItem, data, usageStats, api, overseasData = nu
   if (overseasData) {
     tooltip.push(``, `[${t.overseas}]`);
     tooltip.push(`${t.model}: ${overseasData.modelName}`);
-    tooltip.push(`${t.usageProgress}: ${overseasData.usage.percentage}% (${formatNumber(overseasData.usage.used)}/${formatNumber(overseasData.usage.total)})`);
+    tooltip.push(`${t.usageProgress}: ${overseasData.usage.percentage}% (${formatNumberI18n(overseasData.usage.used)}/${formatNumberI18n(overseasData.usage.total)})`);
     tooltip.push(`${t.remainingTime}: ${translateRemainingText(overseasData.remaining.text)}`);
   }
 
   // Add billing stats if available
   if (usageStats.lastDayUsage > 0 || usageStats.weeklyUsage > 0) {
     tooltip.push(``, t.billingStats);
-    tooltip.push(`${t.yesterday}: ${formatNumber(usageStats.lastDayUsage)}`);
-    tooltip.push(`${t.last7Days}: ${formatNumber(usageStats.weeklyUsage)}`);
-    tooltip.push(`${t.totalUsage}: ${formatNumber(usageStats.planTotalUsage)}`);
+    tooltip.push(`${t.yesterday}: ${formatNumberI18n(usageStats.lastDayUsage)}`);
+    tooltip.push(`${t.last7Days}: ${formatNumberI18n(usageStats.weeklyUsage)}`);
+    tooltip.push(`${t.totalUsage}: ${formatNumberI18n(usageStats.planTotalUsage)}`);
   }
 
   // Add expiry information if available
