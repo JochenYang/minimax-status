@@ -185,6 +185,7 @@ async function showSettingsWebView(context, api, updateStatus) {
   const currentInterval = config.get("refreshInterval") || 30;
   const currentShowTooltip = config.get("showTooltip") ?? true;
   const currentModelName = config.get("modelName") || "";
+  const currentOverseasDisplay = config.get("overseasDisplay") || "none";
 
   // Fetch available models if token and groupId are configured
   let availableModels = [];
@@ -228,24 +229,52 @@ async function showSettingsWebView(context, api, updateStatus) {
                 color: var(--vscode-editor-foreground);
                 border-bottom: 2px solid var(--vscode-panel-border);
                 padding-bottom: 10px;
+                margin-bottom: 24px;
+            }
+            .card {
+                background: var(--vscode-editor-background);
+                border: 1px solid var(--vscode-panel-border);
+                border-radius: 12px;
+                padding: 20px;
+                margin-bottom: 24px;
+                box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+                transition: transform 0.2s, box-shadow 0.2s;
+            }
+            .card:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+            }
+            .card h2 {
+                font-size: 14px;
+                font-weight: 600;
+                margin: 0 0 16px 0;
+                color: var(--vscode-editorForeground);
+                border-bottom: 1px solid var(--vscode-panel-border);
+                padding-bottom: 8px;
             }
             .form-group {
-                margin-bottom: 20px;
+                margin-bottom: 16px;
+            }
+            .form-group:last-child {
+                margin-bottom: 0;
             }
             label {
                 display: block;
-                margin-bottom: 5px;
+                margin-bottom: 6px;
                 font-weight: 600;
                 color: var(--vscode-editor-foreground);
+                font-size: 13px;
             }
-            input[type="text"], input[type="number"] {
-                width: 100%;
-                padding: 8px 12px;
-                border: 1px solid var(--vscode-input-border, #6c6c6c);
-                border-radius: 4px;
-                background-color: var(--vscode-input-background);
+            input[type="text"],
+            input[type="number"],
+            select {
+                padding: 12px 16px;
+                border: 1px solid var(--vscode-input-border);
+                border-radius: 6px;
+                background: var(--vscode-input-background);
                 color: var(--vscode-input-foreground);
                 font-size: 14px;
+                width: 100%;
                 box-sizing: border-box;
             }
             input[type="number"] {
@@ -256,95 +285,130 @@ async function showSettingsWebView(context, api, updateStatus) {
                 align-items: center;
                 gap: 8px;
             }
+            .checkbox-group label {
+                margin-bottom: 0;
+                font-weight: 400;
+            }
             .error {
                 color: var(--vscode-errorForeground);
                 font-size: 12px;
                 margin-top: 4px;
-            }
-            button {
-                background-color: var(--vscode-button-background, #0e639c);
-                color: var(--vscode-button-foreground, #ffffff);
-                border: none;
-                padding: 8px 16px;
-                border-radius: 4px;
-                cursor: pointer;
-                font-size: 14px;
-                margin-right: 10px;
-            }
-            button:hover {
-                background-color: var(--vscode-button-hoverBackground, #1177bb);
             }
             .info-text {
                 font-size: 12px;
                 color: var(--vscode-descriptionForeground);
                 margin-top: 4px;
             }
+            .button-group {
+                display: flex;
+                gap: 12px;
+                margin-top: 8px;
+            }
+            button {
+                background-color: var(--vscode-button-background);
+                color: var(--vscode-button-foreground);
+                border: none;
+                padding: 12px 24px;
+                border-radius: 6px;
+                cursor: pointer;
+                font-size: 14px;
+                font-weight: 500;
+                transition: background-color 0.2s;
+            }
+            button:hover {
+                background-color: var(--vscode-button-hoverBackground);
+            }
+            button.secondary {
+                background-color: transparent;
+                border: 1px solid var(--vscode-button-secondaryBackground);
+            }
+            button.secondary:hover {
+                background-color: var(--vscode-button-secondaryHoverBackground);
+            }
+            select {
+                appearance: none;
+                background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23c5c5c5' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+                background-repeat: no-repeat;
+                background-position: right 12px center;
+                padding-right: 36px;
+            }
         </style>
     </head>
     <body>
         <div class="container">
-            <h1>MiniMax Status 配置</h1>
+            <h1>MiniMax 设置</h1>
 
-            <div class="form-group">
-                <label for="token">API Key</label>
-                <input type="text" id="token" placeholder="请输入 API Key" value="${currentToken}">
-                <div class="info-text">您的 MiniMax API 访问令牌</div>
-                <div class="error" id="token-error"></div>
+            <!-- 认证信息卡片 -->
+            <div class="card">
+                <h2>认证信息</h2>
+                <div class="form-group">
+                    <label for="token">API Key</label>
+                    <input type="text" id="token" placeholder="请输入 API Key" value="${currentToken}">
+                    <div class="info-text">您的 MiniMax API 访问令牌</div>
+                    <div class="error" id="token-error"></div>
+                </div>
+                <div class="form-group">
+                    <label for="groupId">GroupID</label>
+                    <input type="text" id="groupId" placeholder="请输入 groupID" value="${currentGroupId}">
+                    <div class="info-text">您的 MiniMax groupID</div>
+                    <div class="error" id="groupId-error"></div>
+                </div>
             </div>
 
-            <div class="form-group">
-                <label for="groupId">groupID</label>
-                <input type="text" id="groupId" placeholder="请输入 groupID" value="${currentGroupId}">
-                <div class="info-text">您的 MiniMax groupID</div>
-                <div class="error" id="groupId-error"></div>
+            <!-- 显示设置卡片 -->
+            <div class="card">
+                <h2>显示设置</h2>
+                <div class="form-group">
+                    <label for="interval">刷新间隔（秒）</label>
+                    <input type="number" id="interval" min="5" max="300" value="${currentInterval}">
+                    <div class="info-text">自动刷新间隔，建议 10-30 秒</div>
+                </div>
+                <div class="form-group">
+                    <label for="modelName">模型选择</label>
+                    <select id="modelName">
+                        ${modelOptions}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="showTooltip" ${
+                          currentShowTooltip ? "checked" : ""
+                        }>
+                        <label for="showTooltip">显示详细提示信息</label>
+                    </div>
+                </div>
             </div>
 
-            <div class="form-group">
-                <label for="interval">刷新间隔（秒）</label>
-                <input type="number" id="interval" min="5" max="300" value="${currentInterval}">
-                <div class="info-text">自动刷新间隔，建议 10-30 秒</div>
+            <!-- 海外用量卡片 -->
+            <div class="card">
+                <h2>海外用量</h2>
+                <div class="form-group">
+                    <label for="overseasDisplay">显示模式</label>
+                    <select id="overseasDisplay">
+                        <option value="none" ${currentOverseasDisplay === 'none' ? 'selected' : ''}>仅显示国内</option>
+                        <option value="overseas" ${currentOverseasDisplay === 'overseas' ? 'selected' : ''}>仅显示海外</option>
+                        <option value="both" ${currentOverseasDisplay === 'both' ? 'selected' : ''}>国内+海外并行</option>
+                    </select>
+                    <div class="info-text">选择是否显示海外版用量</div>
+                </div>
             </div>
 
-            <div class="form-group">
-                <label class="checkbox-group">
-                    <input type="checkbox" id="showTooltip" ${
-                      currentShowTooltip ? "checked" : ""
-                    }>
-                    <span>显示详细提示信息</span>
-                </label>
-            </div>
-
-            <div class="form-group">
-                <label for="modelName">模型选择</label>
-                <select id="modelName" style="width: 100%; padding: 8px 12px; border: 1px solid var(--vscode-input-border, #6c6c6c); border-radius: 4px; background-color: var(--vscode-input-background); color: var(--vscode-input-foreground); font-size: 14px; box-sizing: border-box;">
-                    ${modelOptions}
-                </select>
-                <div class="info-text">选择要在状态栏显示的模型，留空则使用第一个模型</div>
-            </div>
-
-            <div style="margin-top: 30px;">
-                <button onclick="saveSettings()">保存配置</button>
-                <button onclick="cancelSettings()" style="background-color: var(--vscode-button-secondaryBackground, #6a737d);">取消</button>
-            </div>
-
-            <div style="margin-top: 30px; padding: 15px; background-color: var(--vscode-textBlockQuote-background, #2d2d30); border-radius: 4px;">
-                <strong>如何获取认证信息？</strong><br><br>
-                1. 访问 <a href="https://platform.minimaxi.com/user-center/payment/coding-plan" target="_blank">MiniMax 开放平台</a><br>
-                2. 登录您的账户<br>
-                3. 在用户中心复制您的 <strong>groupID</strong><br>
-                4. 在 Coding Plan 页面创建或获取 <strong>API Key</strong>
+            <div class="button-group">
+                <button id="saveBtn">保存</button>
+                <button id="cancelBtn" class="secondary">取消</button>
             </div>
         </div>
 
         <script>
             const vscode = acquireVsCodeApi();
 
-            function saveSettings() {
+            document.getElementById('saveBtn').addEventListener('click', () => {
                 const token = document.getElementById('token').value.trim();
                 const groupId = document.getElementById('groupId').value.trim();
-                const interval = parseInt(document.getElementById('interval').value);
+                const interval = parseInt(document.getElementById('interval').value, 10);
                 const showTooltip = document.getElementById('showTooltip').checked;
                 const modelName = document.getElementById('modelName').value;
+                const overseasDisplay = document.getElementById('overseasDisplay').value;
 
                 // Clear previous errors
                 document.getElementById('token-error').textContent = '';
@@ -379,15 +443,16 @@ async function showSettingsWebView(context, api, updateStatus) {
                     groupId: groupId,
                     interval: interval,
                     showTooltip: showTooltip,
-                    modelName: modelName
+                    modelName: modelName,
+                    overseasDisplay: overseasDisplay
                 });
-            }
+            });
 
-            function cancelSettings() {
+            document.getElementById('cancelBtn').addEventListener('click', () => {
                 vscode.postMessage({
                     command: 'cancelSettings'
                 });
-            }
+            });
 
             // Handle messages from extension
             window.addEventListener('message', event => {
@@ -433,6 +498,13 @@ async function showSettingsWebView(context, api, updateStatus) {
             config.update(
               "modelName",
               message.modelName,
+              vscode.ConfigurationTarget.Global
+            );
+          }
+          if (message.overseasDisplay !== undefined) {
+            config.update(
+              "overseasDisplay",
+              message.overseasDisplay,
               vscode.ConfigurationTarget.Global
             );
           }
