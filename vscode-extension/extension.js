@@ -299,10 +299,11 @@ async function showSettingsWebView(context, api, updateStatus) {
   }
 
   // Create model options
+  const t_for_model = i18n[currentLanguage] || i18n["zh-CN"];
   const modelOptions = availableModels.length > 0
-    ? `<option value="">自动选择第一个模型</option>` +
+    ? `<option value="">${t_for_model.modelAuto}</option>` +
       availableModels.map(m => `<option value="${m}" ${m === currentModelName ? 'selected' : ''}>${m}</option>`).join('')
-    : `<option value="">请先配置 API Key 和 groupID</option>`;
+    : `<option value="">${t_for_model.modelEmpty}</option>`;
 
   // Create HTML content
   panel.webview.html = `
@@ -733,8 +734,9 @@ function updateStatusBar(statusBarItem, data, usageStats, overseasData = null, d
   const translateRemainingText = (text) => {
     if (language === 'en-US') {
       return text
-        .replace(/小时后重置/, 'hours until reset')
-        .replace(/分钟后重置/, 'minutes until reset');
+        .replace(/小时/, 'h')
+        .replace(/分钟/, 'min')
+        .replace(/后重置/, ' until reset');
     }
     return text;
   };
