@@ -363,7 +363,7 @@ async function showSettingsWebView(context, api, updateStatus) {
                 <div class="form-group">
                     <label for="overseasToken">API Key</label>
                     <input type="text" id="overseasToken" placeholder="请输入海外 API Key" value="${currentOverseasToken}">
-                    <div class="info-text">api.minimax.io 的 API Key（用于显示海外用量）</div>
+                    <div class="info-text">platform.minimax.io 的 API Key（用于显示海外用量）</div>
                     <div class="error" id="overseasToken-error"></div>
                 </div>
                 <div class="form-group">
