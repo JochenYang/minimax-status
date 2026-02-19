@@ -205,6 +205,83 @@ async function showSettingsWebView(context, api, updateStatus) {
   const currentOverseasDisplay = config.get("overseasDisplay") || "none";
   const currentOverseasToken = config.get("overseasToken") || "";
   const currentOverseasGroupId = config.get("overseasGroupId") || "";
+  const currentLanguage = config.get("language") || "zh-CN";
+
+  // Language translations
+  const i18n = {
+    "zh-CN": {
+      title: "MiniMax 设置",
+      domesticTitle: "国内账号",
+      overseasTitle: "海外账号",
+      apiKey: "API Key",
+      apiKeyPlaceholder: "请输入国内 API Key",
+      apiKeyInfo: "platform.minimaxi.com 的 API Key",
+      groupId: "GroupID",
+      groupIdPlaceholder: "请输入 groupID",
+      groupIdInfo: "国内账号的 GroupID",
+      overseasApiKeyPlaceholder: "请输入海外 API Key",
+      overseasApiKeyInfo: "platform.minimax.io 的 API Key（用于显示海外用量）",
+      overseasGroupIdPlaceholder: "请输入 groupID",
+      overseasGroupIdInfo: "海外账号的 GroupID",
+      displayTitle: "显示设置",
+      refreshInterval: "刷新间隔（秒）",
+      refreshIntervalInfo: "自动刷新间隔，建议 10-30 秒",
+      modelSelect: "模型选择",
+      showTooltip: "显示详细提示信息",
+      overseasTitle2: "海外用量",
+      displayMode: "显示模式",
+      displayModeInfo: "选择是否显示海外版用量",
+      modeNone: "仅显示国内",
+      modeOverseas: "仅显示海外",
+      modeBoth: "国内+海外并行",
+      save: "保存",
+      cancel: "取消",
+      apiKeyError: "请输入 API Key",
+      groupIdError: "请输入 groupID",
+      overseasApiKeyError: "请输入海外 API Key",
+      overseasGroupIdError: "请输入海外 groupID",
+      invalidInterval: "刷新间隔必须在 5-300 秒之间",
+      modelAuto: "自动选择第一个模型",
+      modelEmpty: "请先配置 API Key 和 groupID",
+    },
+    "en-US": {
+      title: "MiniMax Settings",
+      domesticTitle: "Domestic Account",
+      overseasTitle: "Overseas Account",
+      apiKey: "API Key",
+      apiKeyPlaceholder: "Enter domestic API Key",
+      apiKeyInfo: "platform.minimaxi.com API Key",
+      groupId: "GroupID",
+      groupIdPlaceholder: "Enter groupID",
+      groupIdInfo: "Domestic account GroupID",
+      overseasApiKeyPlaceholder: "Enter overseas API Key",
+      overseasApiKeyInfo: "platform.minimax.io API Key (for overseas usage)",
+      overseasGroupIdPlaceholder: "Enter groupID",
+      overseasGroupIdInfo: "Overseas account GroupID",
+      displayTitle: "Display Settings",
+      refreshInterval: "Refresh Interval (seconds)",
+      refreshIntervalInfo: "Auto-refresh interval, 10-30 seconds recommended",
+      modelSelect: "Model",
+      showTooltip: "Show detailed tooltip",
+      overseasTitle2: "Overseas Usage",
+      displayMode: "Display Mode",
+      displayModeInfo: "Choose whether to display overseas usage",
+      modeNone: "Domestic only",
+      modeOverseas: "Overseas only",
+      modeBoth: "Domestic + Overseas",
+      save: "Save",
+      cancel: "Cancel",
+      apiKeyError: "API Key is required",
+      groupIdError: "GroupID is required",
+      overseasApiKeyError: "Overseas API Key is required",
+      overseasGroupIdError: "Overseas GroupID is required",
+      invalidInterval: "Refresh interval must be between 5-300 seconds",
+      modelAuto: "Auto select first model",
+      modelEmpty: "Please configure API Key and groupID first",
+    }
+  };
+
+  const t = i18n[currentLanguage] || i18n["zh-CN"];
 
   // Fetch available models if token and groupId are configured
   let availableModels = [];
@@ -355,52 +432,52 @@ async function showSettingsWebView(context, api, updateStatus) {
     </head>
     <body>
         <div class="container">
-            <h1>MiniMax 设置</h1>
+            <h1>${t.title}</h1>
 
             <!-- 国内账号卡片 -->
             <div class="card">
-                <h2>国内账号</h2>
+                <h2>${t.domesticTitle}</h2>
                 <div class="form-group">
-                    <label for="token">API Key</label>
-                    <input type="text" id="token" placeholder="请输入国内 API Key" value="${currentToken}">
-                    <div class="info-text">platform.minimaxi.com 的 API Key</div>
+                    <label for="token">${t.apiKey}</label>
+                    <input type="text" id="token" placeholder="${t.apiKeyPlaceholder}" value="${currentToken}">
+                    <div class="info-text">${t.apiKeyInfo}</div>
                     <div class="error" id="token-error"></div>
                 </div>
                 <div class="form-group">
-                    <label for="groupId">GroupID</label>
-                    <input type="text" id="groupId" placeholder="请输入 groupID" value="${currentGroupId}">
-                    <div class="info-text">国内账号的 GroupID</div>
+                    <label for="groupId">${t.groupId}</label>
+                    <input type="text" id="groupId" placeholder="${t.groupIdPlaceholder}" value="${currentGroupId}">
+                    <div class="info-text">${t.groupIdInfo}</div>
                     <div class="error" id="groupId-error"></div>
                 </div>
             </div>
 
             <!-- 海外账号卡片 -->
             <div class="card">
-                <h2>海外账号</h2>
+                <h2>${t.overseasTitle}</h2>
                 <div class="form-group">
-                    <label for="overseasToken">API Key</label>
-                    <input type="text" id="overseasToken" placeholder="请输入海外 API Key" value="${currentOverseasToken}">
-                    <div class="info-text">platform.minimax.io 的 API Key（用于显示海外用量）</div>
+                    <label for="overseasToken">${t.apiKey}</label>
+                    <input type="text" id="overseasToken" placeholder="${t.overseasApiKeyPlaceholder}" value="${currentOverseasToken}">
+                    <div class="info-text">${t.overseasApiKeyInfo}</div>
                     <div class="error" id="overseasToken-error"></div>
                 </div>
                 <div class="form-group">
-                    <label for="overseasGroupId">GroupID</label>
-                    <input type="text" id="overseasGroupId" placeholder="请输入 groupID" value="${currentOverseasGroupId}">
-                    <div class="info-text">海外账号的 GroupID</div>
+                    <label for="overseasGroupId">${t.groupId}</label>
+                    <input type="text" id="overseasGroupId" placeholder="${t.overseasGroupIdPlaceholder}" value="${currentOverseasGroupId}">
+                    <div class="info-text">${t.overseasGroupIdInfo}</div>
                     <div class="error" id="overseasGroupId-error"></div>
                 </div>
             </div>
 
             <!-- 显示设置卡片 -->
             <div class="card">
-                <h2>显示设置</h2>
+                <h2>${t.displayTitle}</h2>
                 <div class="form-group">
-                    <label for="interval">刷新间隔（秒）</label>
+                    <label for="interval">${t.refreshInterval}</label>
                     <input type="number" id="interval" min="5" max="300" value="${currentInterval}">
-                    <div class="info-text">自动刷新间隔，建议 10-30 秒</div>
+                    <div class="info-text">${t.refreshIntervalInfo}</div>
                 </div>
                 <div class="form-group">
-                    <label for="modelName">模型选择</label>
+                    <label for="modelName">${t.modelSelect}</label>
                     <select id="modelName">
                         ${modelOptions}
                     </select>
@@ -410,28 +487,35 @@ async function showSettingsWebView(context, api, updateStatus) {
                         <input type="checkbox" id="showTooltip" ${
                           currentShowTooltip ? "checked" : ""
                         }>
-                        <label for="showTooltip">显示详细提示信息</label>
+                        <label for="showTooltip">${t.showTooltip}</label>
                     </div>
+                </div>
+                <div class="form-group">
+                    <label for="language">Language / 语言</label>
+                    <select id="language">
+                        <option value="zh-CN" ${currentLanguage === 'zh-CN' ? 'selected' : ''}>中文</option>
+                        <option value="en-US" ${currentLanguage === 'en-US' ? 'selected' : ''}>English</option>
+                    </select>
                 </div>
             </div>
 
             <!-- 海外用量卡片 -->
             <div class="card">
-                <h2>海外用量</h2>
+                <h2>${t.overseasTitle2}</h2>
                 <div class="form-group">
-                    <label for="overseasDisplay">显示模式</label>
+                    <label for="overseasDisplay">${t.displayMode}</label>
                     <select id="overseasDisplay">
-                        <option value="none" ${currentOverseasDisplay === 'none' ? 'selected' : ''}>仅显示国内</option>
-                        <option value="overseas" ${currentOverseasDisplay === 'overseas' ? 'selected' : ''}>仅显示海外</option>
-                        <option value="both" ${currentOverseasDisplay === 'both' ? 'selected' : ''}>国内+海外并行</option>
+                        <option value="none" ${currentOverseasDisplay === 'none' ? 'selected' : ''}>${t.modeNone}</option>
+                        <option value="overseas" ${currentOverseasDisplay === 'overseas' ? 'selected' : ''}>${t.modeOverseas}</option>
+                        <option value="both" ${currentOverseasDisplay === 'both' ? 'selected' : ''}>${t.modeBoth}</option>
                     </select>
-                    <div class="info-text">选择是否显示海外版用量</div>
+                    <div class="info-text">${t.displayModeInfo}</div>
                 </div>
             </div>
 
             <div class="button-group">
-                <button id="saveBtn">保存</button>
-                <button id="cancelBtn" class="secondary">取消</button>
+                <button id="saveBtn">${t.save}</button>
+                <button id="cancelBtn" class="secondary">${t.cancel}</button>
             </div>
         </div>
 
@@ -447,6 +531,7 @@ async function showSettingsWebView(context, api, updateStatus) {
                 const showTooltip = document.getElementById('showTooltip').checked;
                 const modelName = document.getElementById('modelName').value;
                 const overseasDisplay = document.getElementById('overseasDisplay').value;
+                const language = document.getElementById('language').value;
 
                 // Clear previous errors
                 document.getElementById('token-error').textContent = '';
@@ -458,29 +543,29 @@ async function showSettingsWebView(context, api, updateStatus) {
                 let hasError = false;
 
                 if (!token) {
-                    document.getElementById('token-error').textContent = '请输入 API Key';
+                    document.getElementById('token-error').textContent = t.apiKeyError;
                     hasError = true;
                 }
 
                 if (!groupId) {
-                    document.getElementById('groupId-error').textContent = '请输入 groupID';
+                    document.getElementById('groupId-error').textContent = t.groupIdError;
                     hasError = true;
                 }
 
                 // Validate overseas credentials based on display mode
                 if (overseasDisplay === 'overseas' || overseasDisplay === 'both') {
                     if (!overseasToken) {
-                        document.getElementById('overseasToken-error').textContent = '请输入海外 API Key';
+                        document.getElementById('overseasToken-error').textContent = t.overseasApiKeyError;
                         hasError = true;
                     }
                     if (!overseasGroupId) {
-                        document.getElementById('overseasGroupId-error').textContent = '请输入海外 groupID';
+                        document.getElementById('overseasGroupId-error').textContent = t.overseasGroupIdError;
                         hasError = true;
                     }
                 }
 
                 if (interval < 5 || interval > 300) {
-                    alert('刷新间隔必须在 5-300 秒之间');
+                    alert(t.invalidInterval);
                     hasError = true;
                 }
 
@@ -498,7 +583,8 @@ async function showSettingsWebView(context, api, updateStatus) {
                     interval: interval,
                     showTooltip: showTooltip,
                     modelName: modelName,
-                    overseasDisplay: overseasDisplay
+                    overseasDisplay: overseasDisplay,
+                    language: language
                 });
             });
 
@@ -576,13 +662,21 @@ async function showSettingsWebView(context, api, updateStatus) {
               vscode.ConfigurationTarget.Global
             );
           }
+          if (message.language !== undefined) {
+            config.update(
+              "language",
+              message.language,
+              vscode.ConfigurationTarget.Global
+            );
+          }
 
           panel.dispose();
 
           // Refresh status
           updateStatus();
 
-          vscode.window.showInformationMessage("配置保存成功！");
+          const successMsg = currentLanguage === 'en-US' ? 'Settings saved!' : '配置保存成功！';
+          vscode.window.showInformationMessage(successMsg);
           break;
 
         case "cancelSettings":

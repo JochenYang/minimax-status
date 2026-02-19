@@ -81,6 +81,13 @@
           "default": "",
           "description": "海外版 group ID",
           "order": 8
+        },
+        "minimaxStatus.language": {
+          "type": "string",
+          "enum": ["zh-CN", "en-US"],
+          "default": "zh-CN",
+          "description": "Language / 语言",
+          "order": 9
         }
       }
     }
