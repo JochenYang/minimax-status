@@ -84,8 +84,9 @@ class Renderer {
     if (contextUsage !== null && contextUsage !== undefined) {
       const contextPercent = Math.round((contextUsage / contextSize) * 100);
       const contextColor = this.getStatusColor(contextPercent);
-      parts.push(`${contextColor('⚡')} ${contextColor(contextPercent + '%')}`);
-      parts.push(`${chalk.white(this.formatTokens(contextUsage) + '/' + this.formatContextSize(contextSize))}`);
+      // 合并百分比和实际使用量，用 · 分割，统一颜色
+      const contextStr = `${contextColor('⚡' + contextPercent + '%')}${contextColor('·')}${contextColor(this.formatTokens(contextUsage) + ' tokens')}`;
+      parts.push(contextStr);
     } else {
       parts.push(`${chalk.cyan(this.formatContextSize(contextSize))}`);
     }
