@@ -193,7 +193,7 @@ npm run package
 ✓ MiniMax 状态栏已启动
 按 Ctrl+C 退出
 
-[?25l● MiniMax-M2 27% • 3307/4500 • 1h26m ⚡
+[● MiniMax-M2 27% • 3307/4500 • 1h26m ⚡
 ```
 
 ## 命令说明

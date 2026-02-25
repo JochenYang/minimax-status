@@ -64,7 +64,7 @@ function activate(context) {
           planTotalUsage: 0,
         };
 
-        // 计算套餐开始时间：从订阅到期时间往前推1个月
+        // 计算套餐开始时间：从订阅到期时间往前推31天
         let planStartTime = 0;
         if (subscriptionData &&
             subscriptionData.current_subscribe &&
@@ -73,8 +73,8 @@ function activate(context) {
           // 格式: MM/DD/YYYY -> Date
           const [month, day, year] = expiryDateStr.split('/').map(Number);
           const expiryDate = new Date(year, month - 1, day);
-          // 套餐开始时间 = 到期时间 - 1个月
-          planStartTime = new Date(year, month - 2, day).getTime();
+          // 套餐开始时间 = 到期时间 - 30天
+          planStartTime = new Date(year, month - 1, day - 30).getTime();
         }
 
         if (billingCache && billingCache.length > 0) {
