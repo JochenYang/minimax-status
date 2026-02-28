@@ -78,6 +78,30 @@ class Renderer {
       parts.push(`${chalk.blue('📁')} ${chalk.cyan(currentDir)}`);
     }
 
+    // Git 分支显示
+    if (data.gitBranch && data.gitBranch.name) {
+      const { name, ahead, behind, hasChanges } = data.gitBranch;
+
+      // 构建分支显示字符串
+      let branchStr = chalk.white('✦ ' + name);
+
+      // ahead/behind 状态
+      if (ahead > 0 && behind > 0) {
+        branchStr = chalk.white('✦ ' + name) + chalk.yellow(' ↑' + ahead) + chalk.cyan(' ↓' + behind);
+      } else if (ahead > 0) {
+        branchStr = chalk.white('✦ ' + name) + chalk.yellow(' ↑' + ahead);
+      } else if (behind > 0) {
+        branchStr = chalk.white('✦ ' + name) + chalk.cyan(' ↓' + behind);
+      }
+
+      // 未提交更改
+      if (hasChanges) {
+        branchStr += chalk.red(' •');
+      }
+
+      parts.push(branchStr);
+    }
+
     parts.push(`${chalk.magenta('🤖')} ${chalk.magenta(modelName)}`);
 
     // 上下文窗口在前
