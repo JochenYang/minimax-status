@@ -273,6 +273,52 @@ program
         configCounts = await configCounter.count(workspacePath);
       }
 
+      // 获取 git 分支信息
+      let gitBranch = null;
+      if (workspacePath && typeof workspacePath === 'string') {
+        try {
+          const branch = require('child_process').execSync(
+            'git symbolic-ref --short HEAD',
+            { cwd: workspacePath, encoding: 'utf8', timeout: 3000 }
+          ).trim();
+          if (branch) {
+            gitBranch = { name: branch };
+
+            // 获取 ahead/behind
+            try {
+              const revList = require('child_process').execSync(
+                'git rev-list --left-right --count HEAD...@{upstream}',
+                { cwd: workspacePath, encoding: 'utf8', timeout: 3000 }
+              ).trim();
+              if (revList) {
+                const [behind, ahead] = revList.split(/\s+/).map(n => parseInt(n) || 0);
+                if (ahead > 0 || behind > 0) {
+                  gitBranch.ahead = ahead;
+                  gitBranch.behind = behind;
+                }
+              }
+            } catch (e) {
+              // 无 upstream 或获取失败，静默跳过
+            }
+
+            // 检查未提交的更改
+            try {
+              const status = require('child_process').execSync(
+                'git status --porcelain',
+                { cwd: workspacePath, encoding: 'utf8', timeout: 3000 }
+              ).trim();
+              if (status) {
+                gitBranch.hasChanges = true;
+              }
+            } catch (e) {
+              // 获取失败，静默跳过
+            }
+          }
+        } catch (e) {
+          // 非 git 目录或获取失败，静默跳过
+        }
+      }
+
       // 使用 Claude Code 提供的 context_window（最准确）
       let contextUsageValue = contextUsageTokens;
       let contextSizeValue = contextSize;
@@ -292,6 +338,7 @@ program
         contextUsage: contextUsageValue,
         contextSize: contextSizeValue,
         configCounts,
+        gitBranch,
         tools: [],
         agents: [],
         todos: [],
