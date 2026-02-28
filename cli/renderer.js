@@ -82,19 +82,21 @@ class Renderer {
     if (data.gitBranch && data.gitBranch.name) {
       const { name, ahead, behind, hasChanges } = data.gitBranch;
 
-      // 构建分支显示字符串
-      let branchStr = chalk.white('✦ ' + name);
+      // 主分支(main/master)用绿色，其他分支用白色
+      const isMainBranch = name === 'main' || name === 'master';
+      const branchColor = isMainBranch ? chalk.green : chalk.white;
 
-      // ahead/behind 状态
-      if (ahead > 0 && behind > 0) {
-        branchStr = chalk.white('✦ ' + name) + chalk.yellow(' ↑' + ahead) + chalk.cyan(' ↓' + behind);
+      // 构建分支显示字符串（使用 emoji 图标）
+      let branchStr = branchColor('🌿 ' + name);
+
+      // 优先显示 behind（未拉取），不同时显示 ahead 和 behind
+      if (behind > 0) {
+        branchStr += chalk.cyan(' ⬇' + behind);
       } else if (ahead > 0) {
-        branchStr = chalk.white('✦ ' + name) + chalk.yellow(' ↑' + ahead);
-      } else if (behind > 0) {
-        branchStr = chalk.white('✦ ' + name) + chalk.cyan(' ↓' + behind);
+        branchStr += chalk.yellow(' ⬆' + ahead);
       }
 
-      // 未提交更改
+      // 未提交更改用红色点
       if (hasChanges) {
         branchStr += chalk.red(' •');
       }

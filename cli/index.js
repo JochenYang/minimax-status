@@ -204,16 +204,30 @@ program
   .action(async () => {
     let stdinData = null;
     if (!process.stdin.isTTY) {
-      const chunks = [];
-      for await (const chunk of process.stdin) {
-        chunks.push(chunk);
-      }
-      const stdinString = Buffer.concat(chunks).toString();
-      if (stdinString.trim()) {
-        try {
-          stdinData = JSON.parse(stdinString);
-        } catch (e) {
+      // 使用 Promise.race 添加超时，避免 Claude Code 场景下挂起
+      const readStdin = async () => {
+        const chunks = [];
+        for await (const chunk of process.stdin) {
+          chunks.push(chunk);
         }
+        return Buffer.concat(chunks).toString();
+      };
+
+      try {
+        const stdinString = await Promise.race([
+          readStdin(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('stdin timeout')), 1000))
+        ]);
+
+        if (stdinString.trim()) {
+          try {
+            stdinData = JSON.parse(stdinString);
+          } catch (e) {
+            // 静默忽略解析错误
+          }
+        }
+      } catch (e) {
+        // 超时或其他错误，静默继续
       }
     }
 
@@ -274,12 +288,14 @@ program
       }
 
       // 获取 git 分支信息
+      // 优先使用 stdin 传入的 workspacePath，否则 fallback 到 process.cwd()
+      const gitSearchPath = workspacePath || process.cwd();
       let gitBranch = null;
-      if (workspacePath && typeof workspacePath === 'string') {
+      if (gitSearchPath) {
         try {
           const branch = require('child_process').execSync(
             'git symbolic-ref --short HEAD',
-            { cwd: workspacePath, encoding: 'utf8', timeout: 3000 }
+            { cwd: gitSearchPath, encoding: 'utf8', timeout: 3000 }
           ).trim();
           if (branch) {
             gitBranch = { name: branch };
@@ -288,7 +304,7 @@ program
             try {
               const revList = require('child_process').execSync(
                 'git rev-list --left-right --count HEAD...@{upstream}',
-                { cwd: workspacePath, encoding: 'utf8', timeout: 3000 }
+                { cwd: gitSearchPath, encoding: 'utf8', timeout: 3000 }
               ).trim();
               if (revList) {
                 const [behind, ahead] = revList.split(/\s+/).map(n => parseInt(n) || 0);
@@ -305,7 +321,7 @@ program
             try {
               const status = require('child_process').execSync(
                 'git status --porcelain',
-                { cwd: workspacePath, encoding: 'utf8', timeout: 3000 }
+                { cwd: gitSearchPath, encoding: 'utf8', timeout: 3000 }
               ).trim();
               if (status) {
                 gitBranch.hasChanges = true;
