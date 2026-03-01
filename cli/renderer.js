@@ -94,6 +94,9 @@ class Renderer {
         branchStr += chalk.cyan(' ⬇' + behind);
       } else if (ahead > 0) {
         branchStr += chalk.yellow(' ⬆' + ahead);
+      } else if (ahead === -1) {
+        // 没有 upstream 但有本地 commits
+        branchStr += chalk.yellow(' ⬆');
       }
 
       // 未提交更改用红色点
@@ -126,16 +129,6 @@ class Renderer {
       : `${remaining.minutes}m`;
     parts.push(`${chalk.yellow('⌛')} ${chalk.white(remainingText)}`);
 
-    if (configCounts.claudeMdCount > 0) {
-      parts.push(`${chalk.white(configCounts.claudeMdCount + ' CLAUDE.md')}`);
-    }
-    if (configCounts.rulesCount > 0) {
-      parts.push(`${chalk.cyan(configCounts.rulesCount + ' rules')}`);
-    }
-    if (configCounts.mcpCount > 0) {
-      parts.push(`${chalk.yellow(configCounts.mcpCount + ' MCPs')}`);
-    }
-    
     if (expiry) {
       const expiryColor = expiry.daysRemaining <= 3 ? chalk.red : expiry.daysRemaining <= 7 ? chalk.yellow : chalk.green;
       parts.push(`${expiryColor('到期: ' + expiry.daysRemaining + '天')}`);

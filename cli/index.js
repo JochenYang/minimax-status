@@ -282,9 +282,18 @@ program
       const displayDir = currentDir || cliCurrentDir || "";
 
       let configCounts = { claudeMdCount: 0, rulesCount: 0, mcpCount: 0, hooksCount: 0 };
-      const workspacePath = stdinData?.workspace?.current_directory;
-      if (workspacePath && typeof workspacePath === 'string') {
-        configCounts = await configCounter.count(workspacePath);
+      // 优先使用 stdin 传入的 workspacePath，否则 fallback 到 process.cwd()
+      const workspacePath = stdinData?.workspace?.current_directory || process.cwd();
+      if (workspacePath) {
+        try {
+          // 添加超时防止挂起
+          configCounts = await Promise.race([
+            configCounter.count(workspacePath),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('config timeout')), 2000))
+          ]);
+        } catch (e) {
+          // 超时或失败，保持默认值
+        }
       }
 
       // 获取 git 分支信息
@@ -301,12 +310,14 @@ program
             gitBranch = { name: branch };
 
             // 获取 ahead/behind
+            let hasUpstream = false;
             try {
               const revList = require('child_process').execSync(
                 'git rev-list --left-right --count HEAD...@{upstream}',
                 { cwd: gitSearchPath, encoding: 'utf8', timeout: 3000 }
               ).trim();
               if (revList) {
+                hasUpstream = true;
                 const [behind, ahead] = revList.split(/\s+/).map(n => parseInt(n) || 0);
                 if (ahead > 0 || behind > 0) {
                   gitBranch.ahead = ahead;
@@ -315,6 +326,23 @@ program
               }
             } catch (e) {
               // 无 upstream 或获取失败，静默跳过
+            }
+
+            // 如果没有 upstream，尝试获取本地 commit 数作为提示
+            if (!hasUpstream) {
+              try {
+                const localCommits = require('child_process').execSync(
+                  'git rev-list --count HEAD',
+                  { cwd: gitSearchPath, encoding: 'utf8', timeout: 3000 }
+                ).trim();
+                const commitCount = parseInt(localCommits) || 0;
+                // 如果有本地 commits（大于1，因为初始commit算1个），标记有待推送
+                if (commitCount > 1) {
+                  gitBranch.ahead = -1; // -1 表示有未知数量的待推送
+                }
+              } catch (e) {
+                // 获取失败，静默跳过
+              }
             }
 
             // 检查未提交的更改
