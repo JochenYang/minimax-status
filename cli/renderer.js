@@ -104,7 +104,7 @@ class Renderer {
     if (contextUsage !== null && contextUsage !== undefined) {
       const contextPercent = Math.round((contextUsage / contextSize) * 100);
       const contextColor = this.getStatusColor(contextPercent);
-      parts.push(`${contextColor(contextPercent + '%')} ${chalk.gray(this.formatTokens(contextUsage))}`);
+      parts.push(`${contextColor(contextPercent + '%')} ${contextColor('·')} ${contextColor(this.formatTokens(contextUsage) + ' tokens')}`);
     } else {
       parts.push(chalk.cyan(this.formatContextSize(contextSize)));
     }
