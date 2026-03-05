@@ -4,9 +4,12 @@
 
 ## 安装
 
-```bash
-openclaw skill install minimax-usage
+直接告诉 OpenClaw：
 ```
+从 https://github.com/JochenYang/minimax-status/tree/main/openclaw/minimax-usage 安装 skill
+```
+
+或者直接说："安装 MiniMax 使用量 skill"，AI 会读取 README 和代码自动安装。
 
 ## 认证配置
 
