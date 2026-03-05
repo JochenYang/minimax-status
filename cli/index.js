@@ -246,7 +246,7 @@ program
       let displayModel = modelName;
       let currentDir = null;
       let modelId = null;
-      let contextSize = 200000;
+      let contextSize = 204800;
 
       if (stdinData) {
         if (stdinData.model && stdinData.model.display_name) {
@@ -265,13 +265,8 @@ program
       }
 
       if (modelId) {
-        const modelKey = modelId.toLowerCase();
-        for (const [key, value] of Object.entries(MODEL_CONTEXT_SIZES)) {
-          if (modelKey.includes(key.toLowerCase())) {
-            contextSize = value;
-            break;
-          }
-        }
+        // MiniMax 模型统一使用 208K context window
+        contextSize = 204800;
       }
 
       let contextUsageTokens = null;
@@ -401,13 +396,303 @@ program
     }
   });
 
-// 模型上下文窗口大小映射表（仅MiniMax模型）
-const MODEL_CONTEXT_SIZES = {
-  "minimax-m2": 200000,
-  "minimax-m2-stable": 200000,
-  "minimax-m1": 200000,
-  "minimax-m1-stable": 200000,
-};
+// Droid-statusline command - Droid 状态栏集成（从 session 文件读取数据）
+program
+  .command("droid-statusline")
+  .description("Droid状态栏集成（从 session 文件读取数据，单次输出）")
+  .argument("[sessionPath]", "Droid session 目录路径（可选，默认自动查找）")
+  .action(async (sessionPath) => {
+    const fs = require("fs");
+    const path = require("path");
+
+    // 查找 session 目录
+    let targetSessionPath = sessionPath;
+    const currentCwd = process.cwd().replace(/\\/g, "/");
+    
+    if (!targetSessionPath) {
+      const sessionsDir = path.join(process.env.HOME || process.env.USERPROFILE, ".factory", "sessions");
+      
+      if (!fs.existsSync(sessionsDir)) {
+        console.log("❌ 未找到 Droid sessions 目录");
+        process.exit(1);
+      }
+
+      // 优先查找与当前工作目录匹配的 session
+      const userDirs = fs.readdirSync(sessionsDir);
+      let matchedSession = null;
+      let latestSession = null;
+      let latestStartTime = 0;
+
+      for (const userDir of userDirs) {
+        const userPath = path.join(sessionsDir, userDir);
+        if (!fs.statSync(userPath).isDirectory()) continue;
+
+        const sessions = fs.readdirSync(userPath);
+        for (const session of sessions) {
+          if (!session.endsWith(".jsonl")) continue;
+          
+          const jsonlPath = path.join(userPath, session);
+          try {
+            const content = fs.readFileSync(jsonlPath, "utf8");
+            const firstLine = content.split("\n")[0];
+            const entry = JSON.parse(firstLine);
+            
+            if (entry.cwd) {
+              const sessionCwd = entry.cwd.replace(/\\/g, "/");
+              // 优先匹配当前工作目录
+              if (sessionCwd === currentCwd || currentCwd.includes(sessionCwd) || sessionCwd.includes(currentCwd)) {
+                if (!matchedSession) {
+                  matchedSession = userPath;
+                }
+              }
+            }
+            
+            // 记录最新 session
+            if (entry.timestamp) {
+              const startTime = new Date(entry.timestamp).getTime();
+              if (startTime > latestStartTime) {
+                latestStartTime = startTime;
+                latestSession = userPath;
+              }
+            }
+          } catch (e) {
+            // continue
+          }
+        }
+      }
+
+      // 优先使用匹配的 session，否则用最新的
+      targetSessionPath = matchedSession || latestSession;
+
+      if (!targetSessionPath) {
+        console.log("❌ 未找到 Droid session");
+        process.exit(1);
+      }
+    }
+
+    // 读取 settings.json
+    const settingsFiles = fs.readdirSync(targetSessionPath).filter(f => f.endsWith(".settings.json"));
+    let settings = {};
+    
+    for (const sf of settingsFiles) {
+      try {
+        const content = fs.readFileSync(path.join(targetSessionPath, sf), "utf8");
+        const parsed = JSON.parse(content);
+        if (parsed.tokenUsage) {
+          settings = parsed;
+          break;
+        }
+      } catch (e) {
+        // continue
+      }
+    }
+
+    // 读取 jsonl 获取 cwd 和模型信息，以及实时 token 使用量
+    let cwd = process.cwd();
+    let jsonlTokens = null;
+    const jsonlFiles = fs.readdirSync(targetSessionPath).filter(f => f.endsWith(".jsonl"));
+    
+    for (const jf of jsonlFiles) {
+      try {
+        const content = fs.readFileSync(path.join(targetSessionPath, jf), "utf8");
+        const lines = content.split('\n').filter(l => l.trim());
+        
+        // 获取第一行获取 cwd
+        if (lines.length > 0) {
+          try {
+            const firstEntry = JSON.parse(lines[0]);
+            if (firstEntry.cwd) {
+              cwd = firstEntry.cwd;
+            }
+          } catch (e) {}
+        }
+        
+        // 从最后的消息中解析实时 token 使用量
+        for (let i = lines.length - 1; i >= 0; i--) {
+          try {
+            const entry = JSON.parse(lines[i]);
+            // 查找 assistant 消息中的 usage
+            if (entry.type === 'message' && entry.message?.role === 'assistant' && entry.message?.usage) {
+              const u = entry.message.usage;
+              jsonlTokens = {
+                inputTokens: u.input_tokens || u.prompt_tokens || 0,
+                outputTokens: u.output_tokens || u.completion_tokens || 0,
+                cacheCreationTokens: u.cache_creation_input_tokens || u.cache_creation_prompt_tokens || 0,
+                cacheReadTokens: u.cache_read_input_tokens || u.cache_read_prompt_tokens || 0,
+                thinkingTokens: u.thinking_tokens || 0
+              };
+              break;
+            }
+          } catch (e) {
+            continue;
+          }
+        }
+      } catch (e) {
+        // continue
+      }
+    }
+
+    const currentDir = cwd.split(/[/\\]/).pop();
+
+    // 优先使用 jsonl 中的实时 token 使用量，否则用 settings 中的累计值
+    const tokenUsage = (jsonlTokens && (jsonlTokens.inputTokens > 0 || jsonlTokens.outputTokens > 0)) 
+      ? jsonlTokens 
+      : (settings.tokenUsage || {});
+    
+    const inputTokens = tokenUsage.inputTokens || 0;
+    const outputTokens = tokenUsage.outputTokens || 0;
+    const cacheCreationTokens = tokenUsage.cacheCreationTokens || 0;
+    const cacheReadTokens = tokenUsage.cacheReadTokens || 0;
+    const thinkingTokens = tokenUsage.thinkingTokens || 0;
+    
+    // 实时上下文使用量（不包括累计的 cacheReadTokens）
+    const contextTokens = inputTokens + outputTokens + cacheCreationTokens + thinkingTokens;
+    // 累计 token（用于显示）
+    const totalTokens = inputTokens + outputTokens + cacheCreationTokens + cacheReadTokens + thinkingTokens;
+
+    // 获取模型信息
+    const modelName = settings.model || "MiniMax-M2.5-highspeed";
+    const modelDisplayName = modelName.replace(/^custom:/, "").replace(/-[0-9]+$/, "");
+
+    // 获取 API 使用量
+    let usageData = null;
+    try {
+      const [apiData, subscriptionData] = await Promise.all([
+        api.getUsageStatus(),
+        api.getSubscriptionDetails(),
+      ]);
+      usageData = api.parseUsageData(apiData, subscriptionData);
+    } catch (e) {
+      usageData = {
+        usage: { percentage: 0, input: 0, output: 0, cached: 0, total: 0 },
+        remaining: "未知",
+        expiry: "未知",
+        modelName: modelDisplayName
+      };
+    }
+
+    const { usage, remaining, expiry } = usageData;
+
+    // 获取 git 分支
+    let gitBranch = null;
+    try {
+      const branch = require('child_process').execSync(
+        'git symbolic-ref --short HEAD',
+        { cwd: cwd, encoding: 'utf8', timeout: 3000 }
+      ).trim();
+      if (branch) {
+        gitBranch = { name: branch };
+        
+        // 检查未提交的更改
+        try {
+          const status = require('child_process').execSync(
+            'git status --porcelain',
+            { cwd: cwd, encoding: 'utf8', timeout: 3000 }
+          ).trim();
+          if (status) {
+            gitBranch.hasChanges = true;
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+    } catch (e) {
+      // 非 git 目录
+    }
+
+    // 计算上下文使用量（从 session 实时 token）
+    // 使用实时 contextTokens 计算百分比
+    const contextUsageValue = contextTokens;
+    const contextSizeValue = 204800; // MiniMax M2 context window
+
+    // 获取 Droid 全局配置统计（不是当前工作目录）
+    const droidConfigDir = path.join(process.env.HOME || process.env.USERPROFILE, ".factory");
+    let configCounts = { claudeMdCount: 0, rulesCount: 0, mcpCount: 0, hooksCount: 0, skillsCount: 0 };
+    
+    try {
+      const agentsPath = path.join(droidConfigDir, "agents");
+      const rulesPath = path.join(droidConfigDir, "rules");
+      const skillsPath = path.join(droidConfigDir, "skills");
+      const hooksPath = path.join(droidConfigDir, "hooks");
+      const mcpPath = path.join(droidConfigDir, "mcp.json");
+
+      if (fs.existsSync(agentsPath)) {
+        configCounts.claudeMdCount = fs.readdirSync(agentsPath).filter(f => f.endsWith(".md")).length;
+      }
+      if (fs.existsSync(rulesPath)) {
+        configCounts.rulesCount = fs.readdirSync(rulesPath).filter(f => f.endsWith(".md")).length;
+      }
+      if (fs.existsSync(skillsPath)) {
+        configCounts.skillsCount = fs.readdirSync(skillsPath).filter(f => f.endsWith(".md")).length;
+      }
+      if (fs.existsSync(hooksPath)) {
+        configCounts.hooksCount = fs.readdirSync(hooksPath).filter(f => f.endsWith(".ps1") || f.endsWith(".sh")).length;
+      }
+      if (fs.existsSync(mcpPath)) {
+        try {
+          const mcpData = JSON.parse(fs.readFileSync(mcpPath, "utf8"));
+          if (mcpData.mcpServers) {
+            configCounts.mcpCount = Object.keys(mcpData.mcpServers).length;
+          }
+        } catch (e) {}
+      }
+    } catch (e) {
+      // ignore errors
+    }
+
+    // 进度条渲染函数
+    function getBarColor(p) {
+      if (p >= 85) return chalk.red;
+      if (p >= 60) return chalk.yellow;
+      return chalk.green;
+    }
+    const coloredBar = (percent, width = 10) => {
+      const filled = Math.round((percent / 100) * width);
+      const empty = width - filled;
+      const barColor = getBarColor(percent);
+      return barColor('█'.repeat(filled) + '\x1b[2m' + '░'.repeat(empty) + '\x1b[0m');
+    };
+
+    // 简化输出：目录 | git分支 | 使用量(进度条) | 倒计时
+    const parts = [];
+    
+    // 目录
+    if (currentDir) {
+      parts.push(`${chalk.cyan(currentDir)}`);
+    }
+    
+    // Git 分支
+    if (gitBranch && gitBranch.name) {
+      const isMainBranch = gitBranch.name === 'main' || gitBranch.name === 'master';
+      const branchColor = isMainBranch ? chalk.green : chalk.white;
+      let branchStr = branchColor(gitBranch.name);
+      if (gitBranch.hasChanges) {
+        branchStr += chalk.red(' *');
+      }
+      parts.push(branchStr);
+    }
+    
+    // 使用量 - 进度条风格 (显示次数)
+    const usageBar = coloredBar(usage.percentage);
+    const usageColor = usage.percentage >= 85 ? chalk.red : usage.percentage >= 60 ? chalk.yellow : chalk.green;
+    parts.push(`${chalk.yellow('Usage')} ${usageBar} ${usageColor(usage.percentage + '%')} (${usage.remaining}/${usage.total})`);
+    
+    // 倒计时
+    const remainingText = remaining.hours > 0 
+      ? `${remaining.hours}h${remaining.minutes}m` 
+      : `${remaining.minutes}m`;
+    parts.push(`${chalk.yellow('⏱')} ${remainingText}`);
+    
+    // 到期
+    if (expiry) {
+      const expiryColor = expiry.daysRemaining <= 3 ? chalk.red : expiry.daysRemaining <= 7 ? chalk.yellow : chalk.green;
+      parts.push(`${expiryColor('到期 ' + expiry.daysRemaining + '天')}`);
+    }
+    
+    console.log(parts.join(' │ '));
+  });
+
+// 模型上下文窗口大小（仅MiniMax模型）
 
 function startWatching(api, statusBar) {
   let intervalId;

@@ -75,7 +75,7 @@ class Renderer {
     const parts = [];
 
     if (currentDir) {
-      parts.push(`${chalk.blue('📁')} ${chalk.cyan(currentDir)}`);
+      parts.push(`${chalk.cyan(currentDir)}`);
     }
 
     // Git 分支显示
@@ -86,55 +86,49 @@ class Renderer {
       const isMainBranch = name === 'main' || name === 'master';
       const branchColor = isMainBranch ? chalk.green : chalk.white;
 
-      // 构建分支显示字符串（使用 emoji 图标）
-      let branchStr = branchColor('🌿 ' + name);
+      // 构建分支显示字符串
+      let branchStr = branchColor(name);
 
-      // 优先显示 behind（未拉取），不同时显示 ahead 和 behind
-      if (behind > 0) {
-        branchStr += chalk.cyan(' ⬇' + behind);
-      } else if (ahead > 0) {
-        branchStr += chalk.yellow(' ⬆' + ahead);
-      } else if (ahead === -1) {
-        // 没有 upstream 但有本地 commits
-        branchStr += chalk.yellow(' ⬆');
-      }
-
-      // 未提交更改用红色点
+      // 未提交更改用 * 标记
       if (hasChanges) {
-        branchStr += chalk.red(' •');
+        branchStr += chalk.red(' *');
       }
 
       parts.push(branchStr);
     }
 
-    parts.push(`${chalk.magenta('🤖')} ${chalk.magenta(modelName)}`);
+    // 模型
+    parts.push(`${chalk.magenta(modelName)}`);
 
-    // 上下文窗口在前
+    // 上下文窗口
     if (contextUsage !== null && contextUsage !== undefined) {
       const contextPercent = Math.round((contextUsage / contextSize) * 100);
       const contextColor = this.getStatusColor(contextPercent);
-      // 合并百分比和实际使用量，用 · 分割，统一颜色
-      const contextStr = `${contextColor('⚡' + contextPercent + '%')}${contextColor('·')}${contextColor(this.formatTokens(contextUsage) + ' tokens')}`;
-      parts.push(contextStr);
+      parts.push(`${contextColor(contextPercent + '%')} ${chalk.gray(this.formatTokens(contextUsage))}`);
     } else {
-      parts.push(`${chalk.cyan(this.formatContextSize(contextSize))}`);
+      parts.push(chalk.cyan(this.formatContextSize(contextSize)));
     }
 
-    // 使用量合并
+    // 使用量 - 进度条风格
     const usageColor = this.getStatusColor(usagePercentage);
-    parts.push(`${chalk.yellow('↻')} ${usageColor(usagePercentage + '%')}${chalk.yellow('·')}${chalk.white(usage.remaining + '/' + usage.total)}`);
+    const filled = Math.round((usagePercentage / 100) * 10);
+    const empty = 10 - filled;
+    const usageBar = usageColor('█'.repeat(filled) + '\x1b[2m' + '░'.repeat(empty) + '\x1b[0m');
+    parts.push(`${chalk.yellow('Usage')} ${usageBar} ${usageColor(usagePercentage + '%')} (${usage.remaining}/${usage.total})`);
 
+    // 倒计时 - 保留图标
     const remainingText = remaining.hours > 0
       ? `${remaining.hours}h${remaining.minutes}m`
       : `${remaining.minutes}m`;
-    parts.push(`${chalk.yellow('⌛')} ${chalk.white(remainingText)}`);
+    parts.push(`${chalk.yellow('⏱')} ${remainingText}`);
 
+    // 到期 - 保留图标
     if (expiry) {
       const expiryColor = expiry.daysRemaining <= 3 ? chalk.red : expiry.daysRemaining <= 7 ? chalk.yellow : chalk.green;
-      parts.push(`${expiryColor('到期: ' + expiry.daysRemaining + '天')}`);
+      parts.push(`${expiryColor('到期 ' + expiry.daysRemaining + '天')}`);
     }
 
-    return parts.join(' | ');
+    return parts.join(' │ ');
   }
 
   renderToolsLine(tools) {
