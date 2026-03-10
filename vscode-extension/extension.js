@@ -1,10 +1,74 @@
 const vscode = require("vscode");
 const MinimaxAPI = require("./api");
 
+// TreeView data provider for sidebar
+class MinimaxStatusTreeProvider {
+  constructor() {
+    this._onDidChangeTreeData = new vscode.EventEmitter();
+    this.onDidChangeTreeData = this._onDidChangeTreeData.event;
+  }
+
+  getTreeItem(element) {
+    return element;
+  }
+
+  getChildren() {
+    const config = vscode.workspace.getConfiguration("minimaxStatus");
+    const language = config.get("language") || "zh-CN";
+
+    const items = [];
+
+    // 插件设置
+    const settingsItem = new vscode.TreeItem(
+      language === "zh-CN" ? "插件设置" : "Settings",
+      vscode.TreeItemCollapsibleState.None
+    );
+    settingsItem.command = {
+      command: "minimaxStatus.setup",
+      title: language === "zh-CN" ? "打开设置" : "Open Settings"
+    };
+    settingsItem.iconPath = new vscode.ThemeIcon("settings");
+    items.push(settingsItem);
+
+    // 使用教程
+    const helpItem = new vscode.TreeItem(
+      language === "zh-CN" ? "使用教程" : "Help",
+      vscode.TreeItemCollapsibleState.None
+    );
+    helpItem.command = {
+      command: "minimaxStatus.showHelp",
+      title: language === "zh-CN" ? "查看使用教程" : "View Help"
+    };
+    helpItem.iconPath = new vscode.ThemeIcon("question");
+    items.push(helpItem);
+
+    return items;
+  }
+
+  refresh() {
+    this._onDidChangeTreeData.fire();
+  }
+}
+
 // Activate function - entry point for the extension
 function activate(context) {
   try {
     const api = new MinimaxAPI(context);
+
+    // Create TreeView for sidebar
+    const treeProvider = new MinimaxStatusTreeProvider();
+    const treeView = vscode.window.createTreeView("minimaxStatusView", {
+      treeDataProvider: treeProvider
+    });
+
+    // Update tree view when configuration changes
+    const configChangeDisposableForTree = vscode.workspace.onDidChangeConfiguration(
+      (e) => {
+        if (e.affectsConfiguration("minimaxStatus")) {
+          treeProvider.refresh();
+        }
+      }
+    );
 
     const statusBarItem = vscode.window.createStatusBarItem(
       vscode.StatusBarAlignment.Right,
@@ -143,12 +207,24 @@ function activate(context) {
       }
     );
 
+    // Subscribe to help command
+    const helpDisposable = vscode.commands.registerCommand(
+      "minimaxStatus.showHelp",
+      async () => {
+        const panel = await showHelpWebView(context);
+        context.subscriptions.push(panel);
+      }
+    );
+
     // Add to subscriptions
     context.subscriptions.push(
       statusBarItem,
       configChangeDisposable,
+      configChangeDisposableForTree,
       refreshDisposable,
-      setupDisposable
+      setupDisposable,
+      helpDisposable,
+      treeView
     );
 
     // Always show status bar item
@@ -185,6 +261,133 @@ function activate(context) {
       "MiniMax Status 扩展激活失败: " + error.message
     );
   }
+}
+
+// Create help webview
+async function showHelpWebView(context) {
+  const config = vscode.workspace.getConfiguration("minimaxStatus");
+  const language = config.get("language") || "zh-CN";
+
+  const panel = vscode.window.createWebviewPanel(
+    "minimaxHelp",
+    language === "zh-CN" ? "使用教程" : "Help",
+    vscode.ViewColumn.One,
+    {
+      enableScripts: true,
+      retainContextWhenHidden: true,
+    }
+  );
+
+  const i18n = {
+    "zh-CN": {
+      title: "MiniMax Status 使用教程",
+      step1Title: "第一步：获取 API Key",
+      step1Content: "国内版：账户信息\n海外版：Your Profile\n\n在页面中找到并复制 Group ID",
+      step2Title: "第二步：获取 API Key",
+      step2Content: "国内版：套餐管理 -> Coding Plan\n海外版：Subscribe -> Coding Plan\n\n点击「创建新的 API Key」",
+      step3Title: "第三步：配置插件",
+      step3Content: "1. 点击左侧边栏的 MiniMax 图标\n2. 点击「插件设置」按钮\n3. 填写 API Key 和 Group ID\n4. 点击保存",
+      step4Title: "使用说明",
+      step4Content: "• 状态栏显示当前使用进度\n• 点击状态栏可刷新数据\n• 支持国内/海外账号切换",
+    },
+    "en-US": {
+      title: "MiniMax Status Help",
+      step1Title: "Step 1: Get Group ID",
+      step1Content: "Domestic: Your Profile\nOverseas: Your Profile\n\nFind and copy Group ID from the page",
+      step2Title: "Step 2: Get API Key",
+      step2Content: "Domestic: Subscription -> Coding Plan\nOverseas: Subscribe -> Coding Plan\n\nClick 'Create new API Key'",
+      step3Title: "Step 3: Configure Plugin",
+      step3Content: "1. Click MiniMax icon in sidebar\n2. Click「Plugin Settings」\n3. Enter API Key and Group ID\n4. Click Save",
+      step3Title: "Step 3: Configure Plugin",
+      step3Content: "1. Click MiniMax icon in sidebar\n2. Click「Settings」\n3. Enter API Key and Group ID\n4. Click Save",
+      step4Title: "Usage",
+      step4Content: "• Status bar shows usage progress\n• Click status bar to refresh\n• Support domestic/overseas accounts",
+    }
+  };
+
+  const t = i18n[language] || i18n["zh-CN"];
+
+  panel.webview.html = `
+    <!DOCTYPE html>
+    <html lang="${language}">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${t.title}</title>
+        <style>
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                margin: 20px;
+                padding: 0;
+                color: var(--vscode-foreground);
+                background-color: var(--vscode-editor-background);
+            }
+            .container {
+                max-width: 600px;
+                margin: 0 auto;
+            }
+            h1 {
+                color: var(--vscode-editor-foreground);
+                border-bottom: 2px solid var(--vscode-panel-border);
+                padding-bottom: 10px;
+                margin-bottom: 24px;
+            }
+            .step {
+                background: var(--vscode-editor-background);
+                border: 1px solid var(--vscode-panel-border);
+                border-radius: 8px;
+                padding: 16px;
+                margin-bottom: 16px;
+            }
+            .step h2 {
+                font-size: 16px;
+                font-weight: 600;
+                margin: 0 0 12px 0;
+                color: var(--vscode-editor-foreground);
+            }
+            .step p {
+                margin: 0;
+                color: var(--vscode-foreground);
+                line-height: 1.6;
+                white-space: pre-line;
+            }
+            code {
+                background: var(--vscode-editor-wordHighlightBackground);
+                padding: 2px 6px;
+                border-radius: 4px;
+                font-family: monospace;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>${t.title}</h1>
+
+            <div class="step">
+                <h2>${t.step1Title}</h2>
+                <p>${t.step1Content}</p>
+            </div>
+
+            <div class="step">
+                <h2>${t.step2Title}</h2>
+                <p>${t.step2Content}</p>
+            </div>
+
+            <div class="step">
+                <h2>${t.step3Title}</h2>
+                <p>${t.step3Content}</p>
+            </div>
+
+            <div class="step">
+                <h2>${t.step4Title}</h2>
+                <p>${t.step4Content}</p>
+            </div>
+        </div>
+    </body>
+    </html>
+  `;
+
+  return panel;
 }
 
 // Create settings webview

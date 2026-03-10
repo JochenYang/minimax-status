@@ -2,7 +2,7 @@
   "name": "minimax-status-vscode",
   "displayName": "MiniMax Status",
   "description": "在 VS Code 状态栏显示 MiniMax coding-plan 使用状态",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "publisher": "JochenYang",
   "icon": "./public/icon.png",
   "engines": {
@@ -13,7 +13,8 @@
   ],
   "main": "./extension.js",
   "activationEvents": [
-    "onStartupFinished"
+    "onStartupFinished",
+    "onView:mmaximaxStatusView"
   ],
   "contributes": {
     "commands": [
@@ -30,6 +31,23 @@
         "description": "手动刷新 MiniMax 状态"
       }
     ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "minimaxStatusSidebar",
+          "title": "MiniMax Status",
+          "icon": "public/icon.png"
+        }
+      ]
+    },
+    "views": {
+      "minimaxStatusSidebar": [
+        {
+          "id": "minimaxStatusView",
+          "name": "设置"
+        }
+      ]
+    },
     "configuration": {
       "title": "MiniMax Status",
       "properties": {
