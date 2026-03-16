@@ -113,7 +113,7 @@ function activate(context) {
         const now = Date.now();
         if (!billingCache || now - billingCacheTime > BILLING_CACHE_DURATION) {
           try {
-            const billingRecords = await api.getAllBillingRecords(10); // Fetch first 10 pages (1000 records)
+            const billingRecords = await api.getAllBillingRecords(50); // Fetch up to 50 pages (5000 records)
             billingCache = billingRecords;
             billingCacheTime = now;
           } catch (billingError) {
@@ -129,17 +129,21 @@ function activate(context) {
           planTotalUsage: 0,
         };
 
-        // 计算套餐开始时间：从订阅到期时间往前推31天
+        // 计算套餐有效期的起止时间
+        // 注意：current_credit_reload_time 是下次充值日期（与到期时间相同），
+        //       不是当前周期开始时间，需要从到期时间往前推 1 个月计算。
         let planStartTime = 0;
-        if (subscriptionData &&
-            subscriptionData.current_subscribe &&
-            subscriptionData.current_subscribe.current_subscribe_end_time) {
-          const expiryDateStr = subscriptionData.current_subscribe.current_subscribe_end_time;
-          // 格式: MM/DD/YYYY -> Date
-          const [month, day, year] = expiryDateStr.split('/').map(Number);
-          const expiryDate = new Date(year, month - 1, day);
-          // 套餐开始时间 = 到期时间 - 30天
-          planStartTime = new Date(year, month - 1, day - 30).getTime();
+        let planEndTime = 0;
+        if (subscriptionData && subscriptionData.current_subscribe) {
+          const sub = subscriptionData.current_subscribe;
+          if (sub.current_subscribe_end_time) {
+            const endDateStr = sub.current_subscribe_end_time;
+            // 格式: MM/DD/YYYY -> Date
+            const [eMonth, eDay, eYear] = endDateStr.split('/').map(Number);
+            planEndTime = new Date(eYear, eMonth - 1, eDay, 23, 59, 59, 999).getTime();
+            // 套餐开始时间 = 到期时间往前推 1 个月（JS Date 自动处理月份溢出）
+            planStartTime = new Date(eYear, eMonth - 2, eDay).getTime();
+          }
         }
 
         if (billingCache && billingCache.length > 0) {
@@ -155,7 +159,7 @@ function activate(context) {
           usageStats = api.calculateUsageStats(
             billingCache,
             planStartTime > 0 ? planStartTime : minTimestamp, // 使用套餐开始时间
-            now // 到当前时间
+            planEndTime > 0 ? planEndTime : now // 使用套餐到期时间
           );
         }
 
