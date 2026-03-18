@@ -254,9 +254,12 @@ function activate(context) {
       }, 2000);
     } else {
       // If configured but no data yet, show waiting message
-      statusBarItem.text = "⏳ MiniMax: 加载中...";
+      const loadingLang = config.get("language") || "zh-CN";
+      const loadingText = loadingLang === 'en-US' ? 'Loading...' : '加载中...';
+      const loadingTooltip = loadingLang === 'en-US' ? 'MiniMax Status\nFetching status...' : 'MiniMax Status\n正在获取状态...';
+      statusBarItem.text = `⏳ MiniMax: ${loadingText}`;
       statusBarItem.color = new vscode.ThemeColor("statusBar.foreground");
-      statusBarItem.tooltip = "MiniMax Status\n正在获取状态...";
+      statusBarItem.tooltip = loadingTooltip;
       statusBarItem.command = "minimaxStatus.refresh";
     }
   } catch (error) {
@@ -300,8 +303,6 @@ async function showHelpWebView(context) {
       step1Content: "Domestic: Your Profile\nOverseas: Your Profile\n\nFind and copy Group ID from the page",
       step2Title: "Step 2: Get API Key",
       step2Content: "Domestic: Subscription -> Coding Plan\nOverseas: Subscribe -> Coding Plan\n\nClick 'Create new API Key'",
-      step3Title: "Step 3: Configure Plugin",
-      step3Content: "1. Click MiniMax icon in sidebar\n2. Click「Plugin Settings」\n3. Enter API Key and Group ID\n4. Click Save",
       step3Title: "Step 3: Configure Plugin",
       step3Content: "1. Click MiniMax icon in sidebar\n2. Click「Settings」\n3. Enter API Key and Group ID\n4. Click Save",
       step4Title: "Usage",
@@ -913,6 +914,8 @@ function updateStatusBar(statusBarItem, data, usageStats, overseasData = null, d
       usageProgress: "使用进度",
       remainingTime: "剩余时间",
       timeWindow: "时间窗口",
+      weeklyUsage: "周用量",
+      weeklyReset: "周重置",
       billingStats: "=== Token 消耗统计 ===",
       yesterday: "昨日消耗",
       last7Days: "近7天消耗",
@@ -927,6 +930,8 @@ function updateStatusBar(statusBarItem, data, usageStats, overseasData = null, d
       usageProgress: "Usage",
       remainingTime: "Remaining",
       timeWindow: "Time Window",
+      weeklyUsage: "Weekly",
+      weeklyReset: "Weekly Reset",
       billingStats: "=== Token Usage Stats ===",
       yesterday: "Yesterday",
       last7Days: "Last 7 days",
@@ -960,25 +965,29 @@ function updateStatusBar(statusBarItem, data, usageStats, overseasData = null, d
     return text;
   };
 
-  // Helper to format number with language-appropriate units
+  // Helper to format number with units
   const formatNumberI18n = (num) => {
-    if (language === 'en-US') {
+    // Chinese format uses 万/亿 for readability
+    if (language === 'zh-CN') {
       if (num >= 100000000) {
-        return (num / 100000000).toFixed(1).replace(/\.0$/, "") + "B";
+        return (num / 100000000).toFixed(2).replace(/\.0$/, "") + "亿";
       }
       if (num >= 10000) {
-        return (num / 1000).toFixed(1).replace(/\.0$/, "") + "K";
+        return (num / 10000).toFixed(2).replace(/\.0$/, "") + "万";
       }
-      return num.toLocaleString("en-US");
+      return num.toLocaleString("zh-CN");
     }
-    // Chinese format
-    if (num >= 100000000) {
-      return (num / 100000000).toFixed(1).replace(/\.0$/, "") + "亿";
+    // English format uses K/M/B with higher precision
+    if (num >= 1000000000) {
+      return (num / 1000000000).toFixed(2).replace(/\.0$/, "") + "B";
     }
-    if (num >= 10000) {
-      return (num / 10000).toFixed(1).replace(/\.0$/, "") + "万";
+    if (num >= 1000000) {
+      return (num / 1000000).toFixed(2).replace(/\.0$/, "") + "M";
     }
-    return num.toLocaleString("zh-CN");
+    if (num >= 1000) {
+      return (num / 1000).toFixed(2).replace(/\.0$/, "") + "K";
+    }
+    return num.toLocaleString("en-US");
   };
 
   // 关键修复：设置状态栏命令为刷新
@@ -1014,7 +1023,11 @@ function updateStatusBar(statusBarItem, data, usageStats, overseasData = null, d
     const overseasPercent = overseasData.usage.percentage;
     statusBarItem.text = `$(clock) ${t.domestic}${domesticPercent}% / ${t.overseas}${overseasPercent}%`;
   } else {
-    statusBarItem.text = `$(clock) ${modelName} ${percentage}%`;
+    // 显示格式：剩余时间 百分比 · 周 百分比
+    const remainingText = remaining.hours > 0 ? `${remaining.hours}h` : `${remaining.minutes}m`;
+    const weeklyLabel = language === 'en-US' ? 'W' : '周';
+    const weeklyText = data.weekly ? ` · ${weeklyLabel} ${data.weekly.percentage}%` : '';
+    statusBarItem.text = `$(clock) ${remainingText} ${percentage}%${weeklyText}`;
   }
 
   // Build tooltip
@@ -1026,6 +1039,18 @@ function updateStatusBar(statusBarItem, data, usageStats, overseasData = null, d
   tooltip.push(`${t.usageProgress}: ${data.usage.percentage}% (${formatNumberI18n(data.usage.used)}/${formatNumberI18n(data.usage.total)})`);
   tooltip.push(`${t.remainingTime}: ${translateRemainingText(data.remaining.text)}`);
   tooltip.push(`${t.timeWindow}: ${data.timeWindow.start}-${data.timeWindow.end}(${data.timeWindow.timezone})`);
+
+  // Add weekly usage info if available
+  if (data.weekly) {
+    tooltip.push(``, `${t.weeklyUsage}: ${data.weekly.percentage}% (${formatNumberI18n(data.weekly.used)}/${formatNumberI18n(data.weekly.total)})`);
+    // Translate weekly reset text
+    const weeklyResetText = language === 'en-US'
+      ? (data.weekly.days > 0
+        ? `${data.weekly.days}d ${data.weekly.hours}h until reset`
+        : `${data.weekly.hours}h until reset`)
+      : data.weekly.text;
+    tooltip.push(`${t.weeklyReset}: ${weeklyResetText}`);
+  }
 
   // Add overseas usage info if available
   if (overseasData) {

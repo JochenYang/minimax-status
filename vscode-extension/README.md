@@ -1,184 +1,149 @@
-# MiniMax Status - VS Code 扩展
+# MiniMax Status
 
-MiniMax coding-plan 使用状态监控 VS Code 扩展，在底部状态栏实时显示你的使用额度。
+在 VS Code 状态栏实时显示 MiniMax Coding Plan 使用状态。
+
+[![VS Code Extension](https://img.shields.io/badge/VS%20Code-Extension-blue?style=flat-square)](https://marketplace.visualstudio.com/items?itemName=JochenYang.minimax-status-vscode)
+[![Version](https://img.shields.io/badge/version-1.2.5-green?style=flat-square)](https://marketplace.visualstudio.com/items?itemName=JochenYang.minimax-status-vscode)
+
+---
 
 ## 功能特性
 
-- ✅ **实时状态栏显示** - 在 VS Code 底部状态栏显示当前使用状态
-- ✅ **多信息展示** - 显示目录、模型、使用率、剩余次数、上下文窗口
-- ✅ **智能颜色提示** - 根据使用率自动变色（绿色/黄色/红色）
-- ✅ **可配置设置** - 支持自定义刷新间隔和显示选项
-- ✅ **悬停提示** - 鼠标悬停查看详细信息
+| 功能 | 说明 |
+|------|------|
+| **实时状态栏** | 显示剩余时间、当前用量百分比、周用量 |
+| **智能颜色提示** | 使用率 60%/85% 分界变色（绿/黄/红） |
+| **悬停详情** | 查看模型、用量、剩余时间、时间窗口 |
+| **侧边栏入口** | 点击图标快速进入设置或查看帮助 |
+| **双语支持** | 中文/英文界面 |
 
-## 安装扩展
-
-### 方法一：从 VS Code 市场安装（推荐）
-
-1. 打开 VS Code
-2. 进入扩展商店（`Ctrl+Shift+X`）
-3. 搜索 "MiniMax Status"
-4. 点击安装
-
-### 方法二：手动安装 VSIX 文件
-
-如果您无法通过市场安装，可以手动下载 VSIX 文件：
-
-1. 在 VS Code 中按 `Ctrl+Shift+P`
-2. 输入 "Extensions: Install from VSIX..."
-3. 选择下载的 `.vsix` 文件
-
-### 从源码构建
-
-1. 克隆本仓库：`git clone https://github.com/JochenYang/minimax-status.git`
-2. 进入扩展目录：`cd vscode-extension`
-3. 安装依赖：`npm install`
-4. 打包扩展：`npm run package`
-5. 在 VS Code 中安装生成的 `.vsix` 文件
+---
 
 ## 快速开始
 
-### 1. 配置认证信息
+### 1. 安装扩展
 
-安装后，你需要配置 MiniMax 的访问令牌：
+**方式一**：VS Code 扩展商店搜索 "MiniMax Status"
 
-1. 使用命令 "MiniMax Status: 配置向导" 打开设置界面
-2. 或点击状态栏的"需要配置"按钮
+**方式二**：手动安装 `.vsix` 文件
 
-#### 必需配置
+### 2. 配置认证
 
-- **MiniMax API Key**: 你的 API 访问令牌
-- **MiniMax GroupID**: 你的组 ID
+1. 点击左侧边栏的 MiniMax 图标
+2. 点击「插件设置」
+3. 填写 **Group ID** 和 **API Key**
 
-#### 可选配置
+### 3. 获取认证信息
 
-- **刷新间隔**: 默认 30 秒（建议 10-30 秒）
-- **显示提示**: 默认开启（鼠标悬停显示详细信息）
+| 信息 | 获取位置 |
+|------|----------|
+| Group ID | 账户信息 / Your Profile |
+| API Key | 套餐管理 → Coding Plan / Subscribe → Coding Plan |
 
-### 2. 获取认证信息
+### 4. 查看状态
 
-#### 获取 API Key
+配置完成后，状态栏显示：
 
-1. 访问 [MiniMax 开放平台](https://platform.minimaxi.com/user-center/payment/coding-plan)
-2. 登录你的账户
-3. 进入 "Coding Plan" 页面
-4. 创建或获取 API Key
-
-#### 获取 GroupID
-
-1. 在用户中心或账户信息页面
-2. 复制你的 **GroupID**
-
-### 3. 查看状态栏
-
-配置完成后，VS Code 底部状态栏将显示：
-
+**中文版：**
 ```
-⏰ MiniMax-M2 8%
+⏱ 25m 4% · 周 1%
 ```
 
-### 4. 鼠标悬停查看详情
-
-将鼠标悬停在状态栏上，可查看详细的使用信息：
-
-- 当前模型
-- 使用进度
-- 剩余时间
-- 上下文窗口大小
-
-## 状态说明
-
-### 颜色编码
-
-- 🟢 **绿色（< 60%）**: 正常使用
-- 🟡 **黄色（60-85%）**: 注意使用
-- 🔴 **红色（≥ 85%）**: 接近限制
-
-### 状态图标
-
-- ✓ 正常状态
-- ⚡ 注意使用
-- ⚠ 危险状态（即将达到限制）
-
-## 显示信息说明
-
-VSCode 扩展在状态栏显示的格式：
-
-### 状态栏文字
+**English:**
 ```
-⏰ MiniMax-M2 15%
+⏱ 25m 4% · W 1%
 ```
 
-- **⏰**: 时钟图标，表示状态
-- **MiniMax-M2**: 当前模型名称
-- **15%**: 已使用额度百分比
+- `25m` - 距离重置的剩余时间
+- `4%` - 当前窗口用量百分比
+- `W` / `周` - 周用量百分比
 
-### 颜色编码
+---
 
-- 🟢 **绿色** (0-59%): 使用正常
-- 🟡 **黄色** (60-84%): 注意使用
-- 🔴 **红色** (85%+): 接近限额
+## 界面预览
 
-### 悬停提示详情
+### 状态栏
 
-将鼠标悬停在状态栏上，查看详细信息：
 ```
-模型: MiniMax-M2
-使用进度: 15% (675/4500)
-剩余时间: 4 小时 20 分钟后重置
-时间窗口: 00:00-05:00(UTC+8)
+⏱ 25m 4% · 周 1%   (中文版)
+⏱ 25m 4% · W 1%   (English)
+```
+
+### Tooltip 详情
+
+**中文版：**
+```
+[国内]
+模型: MiniMax-M2.7
+使用进度: 4% (169/4,500)
+剩余时间: 15 分钟后重置
+时间窗口: 15:00–20:00 (UTC+8)
+
+周用量: 1% (1,860/157,500)
+周重置: 4 天 4 小时后重置
+
+=== Token 消耗统计 ===
+昨日消耗: 0.83亿
+近7天消耗: 5.79亿
+套餐总消耗: 21.42亿
+到期: 03/26/2026 (还剩 8 天)
 
 点击刷新状态
 ```
 
+**English:**
+```
+[Domestic]
+Model: MiniMax-M2.7
+Usage: 4% (169/4,500)
+Remaining: 15 min until reset
+Time Window: 15:00–20:00 (UTC+8)
+
+Weekly: 1% (1,860/157,500)
+Weekly Reset: 4d 4h until reset
+
+=== Token Usage Stats ===
+Yesterday: 83.40M
+Last 7 days: 578.79M
+Total usage: 2.14B
+Expires: 03/26/2026 (8 days remaining)
+
+Click to refresh
+```
+
+---
+
+## 颜色编码
+
+| 颜色 | 用量范围 | 状态 |
+|------|----------|------|
+| 🟢 绿色 | 0-59% | 正常使用 |
+| 🟡 黄色 | 60-84% | 注意使用 |
+| 🔴 红色 | 85%+ | 接近限额 |
+
+---
+
 ## 常见问题
 
-### Q: 状态栏不显示？
+**Q: 状态栏不显示？**
 
-**A**: 请检查：
+请检查：
+- 是否已正确配置 Group ID 和 API Key
+- 扩展是否已激活（重启 VS Code）
+- 网络连接是否正常
 
-1. 是否已正确配置 Token 和 GroupId
-2. 扩展是否已激活（重启 VS Code）
-3. 网络连接是否正常
+**Q: 显示 "需要配置"？**
 
-### Q: 显示 "未配置" 或 "错误"？
+1. 点击状态栏上的 "需要配置" 按钮
+2. 或点击左侧边栏 MiniMax 图标 → 「插件设置」
 
-**A**:
-
-1. 检查 Token 是否正确（应以 `sk-` 开头）
-2. 检查 GroupId 是否正确
-3. 确认 MiniMax 账户有足够的额度
-
-### Q: 状态更新不及时？
-
-**A**:
-
-1. 调整设置中的 "刷新间隔"（建议 10-30 秒）
-2. 重启 VS Code
-3. 手动触发：按 `Ctrl+Shift+P` → 输入 "MiniMax Status: Refresh"
-
-### Q: 如何卸载扩展？
-
-**A**:
-
-1. 按 `Ctrl+Shift+X` 打开扩展商店
-2. 找到 "MiniMax Status"
-3. 点击 "卸载"
-
-## 设置选项
-
-### 完整设置列表
-
-在 VS Code 设置中搜索 "MiniMax Status"：
-
-- **minimaxStatus.token**: MiniMax 访问令牌
-- **minimaxStatus.groupId**: MiniMax Group ID
-- **minimaxStatus.refreshInterval**: 刷新间隔（秒，范围 5-300）
-- **minimaxStatus.showTooltip**: 是否显示详细提示信息（布尔值）
+---
 
 ## 相关链接
 
 - [MiniMax 开放平台](https://platform.minimaxi.com/)
+- [VS Code 市场](https://marketplace.visualstudio.com/items?itemName=JochenYang.minimax-status-vscode)
 
 ---
 
-**注意**: 本扩展仅用于显示 MiniMax Claude Code 使用状态，不存储或传输任何用户数据。认证信息仅保存在本地 VS Code 设置中。
+> **隐私说明**：本扩展仅用于显示 MiniMax 使用状态，不存储或传输用户数据。认证信息保存在本地设置中。
