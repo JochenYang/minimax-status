@@ -302,6 +302,14 @@ class MinimaxAPI {
     const hours = Math.floor(remainingMs / (1000 * 60 * 60));
     const minutes = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
 
+    // Calculate weekly usage data
+    const weeklyUsed = modelData.current_weekly_total_count - modelData.current_weekly_usage_count;
+    const weeklyTotal = modelData.current_weekly_total_count;
+    const weeklyPercentage = Math.floor((weeklyUsed / weeklyTotal) * 100);
+    const weeklyRemainingMs = modelData.weekly_remains_time;
+    const weeklyDays = Math.floor(weeklyRemainingMs / (1000 * 60 * 60 * 24));
+    const weeklyHours = Math.floor((weeklyRemainingMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+
     // Parse subscription expiry date if available
     let expiryInfo = null;
     if (
@@ -371,6 +379,16 @@ class MinimaxAPI {
         remaining: remainingCount, // 新增：剩余次数
         total: modelData.current_interval_total_count,
         percentage: usedPercentage,
+      },
+      weekly: {
+        used: weeklyUsed,
+        total: weeklyTotal,
+        percentage: weeklyPercentage,
+        days: weeklyDays,
+        hours: weeklyHours,
+        text: weeklyDays > 0
+          ? `${weeklyDays} 天 ${weeklyHours} 小时后重置`
+          : `${weeklyHours} 小时后重置`,
       },
       contextWindow,
       expiry: expiryInfo,

@@ -374,6 +374,7 @@ program
         usage,
         remaining,
         expiry,
+        weekly: usageData.weekly,
         contextUsage: contextUsageValue,
         contextSize: contextSizeValue,
         configCounts,
@@ -565,13 +566,14 @@ program
     } catch (e) {
       usageData = {
         usage: { percentage: 0, input: 0, output: 0, cached: 0, total: 0 },
+        weekly: null,
         remaining: "未知",
         expiry: "未知",
         modelName: modelDisplayName
       };
     }
 
-    const { usage, remaining, expiry } = usageData;
+    const { usage, weekly, remaining, expiry } = usageData;
 
     // 获取 git 分支
     let gitBranch = null;
@@ -675,7 +677,13 @@ program
     // 使用量 - 进度条风格 (显示次数)
     const usageBar = coloredBar(usage.percentage);
     const usageColor = usage.percentage >= 85 ? chalk.red : usage.percentage >= 60 ? chalk.yellow : chalk.green;
-    parts.push(`${chalk.yellow('Usage')} ${usageBar} ${usageColor(usage.percentage + '%')} (${usage.remaining}/${usage.total})`);
+    let usageLine = `${chalk.yellow('Usage')} ${usageBar} ${usageColor(usage.percentage + '%')} (${usage.remaining}/${usage.total})`;
+    // 周用量紧跟在 usage 后面
+    if (weekly) {
+      const weeklyColor = weekly.percentage >= 85 ? chalk.red : weekly.percentage >= 60 ? chalk.yellow : chalk.green;
+      usageLine += ` ${chalk.gray('·')} ${chalk.blue('W')} ${weeklyColor(weekly.percentage + '%')}`;
+    }
+    parts.push(usageLine);
     
     // 倒计时
     const remainingText = remaining.hours > 0 

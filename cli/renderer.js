@@ -70,6 +70,7 @@ class Renderer {
       contextSize,
       configCounts,
       sessionDuration,
+      weekly,
     } = data;
 
     const parts = [];
@@ -122,7 +123,13 @@ class Renderer {
     const filled = Math.round((usagePercentage / 100) * 10);
     const empty = 10 - filled;
     const usageBar = usageColor('█'.repeat(filled) + '\x1b[2m' + '░'.repeat(empty) + '\x1b[0m');
-    parts.push(`${chalk.yellow('Usage')} ${usageBar} ${usageColor(usagePercentage + '%')} (${usage.remaining}/${usage.total})`);
+    let usageLine = `${chalk.yellow('Usage')} ${usageBar} ${usageColor(usagePercentage + '%')} (${usage.remaining}/${usage.total})`;
+    // 周用量紧跟在 usage 后面
+    if (weekly) {
+      const weeklyColor = this.getStatusColor(weekly.percentage);
+      usageLine += ` ${chalk.gray('·')} ${chalk.blue('W')} ${weeklyColor(weekly.percentage + '%')}`;
+    }
+    parts.push(usageLine);
 
     // 倒计时 - 保留图标
     const remainingText = remaining.hours > 0

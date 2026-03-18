@@ -74,7 +74,7 @@ class StatusBar {
   }
 
   render() {
-    const { modelName, timeWindow, remaining, usage, expiry } = this.data;
+    const { modelName, timeWindow, remaining, usage, weekly, expiry } = this.data;
 
     // Calculate progress bar width
     const width = 30;
@@ -109,6 +109,20 @@ class StatusBar {
 
     // 剩余次数
     contentLines.push(`${chalk.dim('     剩余:')} ${usage.remaining}/${usage.total} 次调用`);
+
+    // 周用量（如果有数据）
+    if (weekly) {
+      contentLines.push('');
+      const weeklyPercent = weekly.percentage;
+      const weeklyColor = weeklyPercent >= 85 ? chalk.red : weeklyPercent >= 60 ? chalk.yellow : chalk.green;
+      const weeklyProgress = this.createProgressBar(
+        Math.floor((weeklyPercent / 100) * 15),
+        15 - Math.floor((weeklyPercent / 100) * 15),
+        weeklyPercent
+      );
+      contentLines.push(`${chalk.cyan('周用量:')} ${weeklyColor(weeklyProgress)} ${weeklyColor(weekly.percentage + '%')} (${weekly.used}/${weekly.total})`);
+      contentLines.push(`${chalk.dim('     重置:')} ${weekly.text}`);
+    }
 
     // 添加到期行（如果可用）
     if (expiry) {
