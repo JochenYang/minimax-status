@@ -5,19 +5,19 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![VSCode Extension](https://img.shields.io/badge/VSCode-MiniMax-blue?style=flat-square)](https://marketplace.visualstudio.com/items?itemName=JochenYang.minimax-status-vscode)
 
-MiniMax coding-plan 使用状态监控工具，支持 CLI 命令和 Claude Code 状态栏集成。
+MiniMax Token-Plan 使用状态监控工具，支持 CLI 命令和 Claude Code 状态栏集成。
 
 ## 版本
 
 | 插件 | 版本 | 安装方式 |
 |------|------|----------|
-| **CLI** | 1.1.9 | `npm install -g minimax-status` |
-| **VSCode** | 1.2.6 | [VSCode Marketplace](https://marketplace.visualstudio.com/items?itemName=JochenYang.minimax-status-vscode) 或 [下载 VSIX](https://github.com/JochenYang/minimax-status/releases) |
+| **CLI** | 1.1.11 | `npm install -g minimax-status` |
+| **VSCode** | 1.2.7 | [VSCode Marketplace](https://marketplace.visualstudio.com/items?itemName=JochenYang.minimax-status-vscode) 或 [下载 VSIX](https://github.com/JochenYang/minimax-status/releases) |
 | **OpenClaw** | - | 参考 `openclaw/minimax-usage/` 目录 |
 
 ## 特性
 
-- ✅ **实时状态监控**: 显示 MiniMax coding-plan 使用额度、剩余次数、重置时间
+- ✅ **实时状态监控**: 显示 MiniMax Token-Plan 使用额度、剩余次数、重置时间
 - ✅ **上下文窗口跟踪**: 智能解析转录文件，准确显示当前会话的上下文使用量
 - ✅ **多种显示模式**: 详细模式、紧凑模式、持续状态栏
 - ✅ **Claude Code 集成**: 可在 Claude Code 底部状态栏显示
@@ -413,4 +413,4 @@ MIT License - 详见 [LICENSE](LICENSE) 文件
 
 ---
 
-**注意**: 本工具仅用于监控 MiniMax coding-plan 用量使用状态，不存储或传输任何用户数据。
+**注意**: 本工具仅用于监控 MiniMax Token-Plan 用量使用状态，不存储或传输任何用户数据。

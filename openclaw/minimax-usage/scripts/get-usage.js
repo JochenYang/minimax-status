@@ -117,7 +117,7 @@ class MinimaxAPI {
     });
   }
 
-  async getAllBillingRecords(maxPages = 10) {
+  async getAllBillingRecords(maxPages = 100, minStartTime = 0) {
     const allRecords = [];
     for (let page = 1; page <= maxPages; page++) {
       try {
@@ -125,6 +125,14 @@ class MinimaxAPI {
         const records = response.charge_records || [];
         if (records.length === 0) break;
         allRecords.push(...records);
+        // 如果传入了时间范围，检查是否需要继续获取
+        if (minStartTime > 0) {
+          const lastRecord = records[records.length - 1];
+          const lastRecordTime = (lastRecord.created_at || 0) * 1000;
+          if (lastRecordTime < minStartTime) {
+            break;
+          }
+        }
         if (records.length < 100) break;
       } catch (e) {
         break;
@@ -243,11 +251,10 @@ async function main() {
 
     let usageStats = null;
     try {
-      const billingRecords = await api.getAllBillingRecords(10);
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0).getTime();
+      const billingRecords = await api.getAllBillingRecords(100, monthStart);
       if (billingRecords.length > 0) {
-        // 按自然月统计当月消耗
-        const now = new Date();
-        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0).getTime();
         usageStats = api.calculateUsageStats(billingRecords, monthStart, now.getTime());
       }
     } catch (e) {

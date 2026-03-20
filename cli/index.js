@@ -118,24 +118,12 @@ program
       // 获取账单数据用于消耗统计
       let usageStats = null;
       try {
-        const billingRecords = await api.getAllBillingRecords(10);
+        // 按自然月统计当月消耗
+        const now = new Date();
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0).getTime();
+        const billingRecords = await api.getAllBillingRecords(100, monthStart);
         if (billingRecords.length > 0) {
-          // 计算套餐开始时间：到期时间往前推1个月
-          let planStartTime = 0;
-          if (subscriptionData &&
-              subscriptionData.current_subscribe &&
-              subscriptionData.current_subscribe.current_subscribe_end_time) {
-            const expiryDateStr = subscriptionData.current_subscribe.current_subscribe_end_time;
-            const [month, day, year] = expiryDateStr.split('/').map(Number);
-            planStartTime = new Date(year, month - 2, day).getTime();
-          }
-
-          const now = Date.now();
-          usageStats = api.calculateUsageStats(
-            billingRecords,
-            planStartTime > 0 ? planStartTime : 0,
-            now
-          );
+          usageStats = api.calculateUsageStats(billingRecords, monthStart, now.getTime());
         }
       } catch (billingError) {
         // 账单数据获取失败不影响主要功能

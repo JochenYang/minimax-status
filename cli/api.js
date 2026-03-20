@@ -173,10 +173,11 @@ class MinimaxAPI {
 
   /**
    * Fetch all billing records with pagination
-   * @param {number} maxPages - Maximum number of pages to fetch
+   * @param {number} maxPages - Maximum number of pages to fetch (default 100)
+   * @param {number} minStartTime - Optional: stop fetching when records are older than this time (ms)
    * @returns {Promise<Array>} All billing records
    */
-  async getAllBillingRecords(maxPages = 10) {
+  async getAllBillingRecords(maxPages = 100, minStartTime = 0) {
     const allRecords = [];
 
     for (let page = 1; page <= maxPages; page++) {
@@ -189,6 +190,15 @@ class MinimaxAPI {
         }
 
         allRecords.push(...records);
+
+        // 如果传入了时间范围，检查是否需要继续获取
+        if (minStartTime > 0) {
+          const lastRecord = records[records.length - 1];
+          const lastRecordTime = (lastRecord.created_at || 0) * 1000;
+          if (lastRecordTime < minStartTime) {
+            break;
+          }
+        }
 
         if (records.length < 100) {
           break;

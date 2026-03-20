@@ -110,10 +110,13 @@ function activate(context) {
         }
 
         // Fetch billing data for usage statistics (with caching)
-        const now = Date.now();
+        const nowDate = new Date();
+        const now = nowDate.getTime();
+        // 按自然月统计当月消耗
+        const monthStart = new Date(nowDate.getFullYear(), nowDate.getMonth(), 1, 0, 0, 0, 0).getTime();
         if (!billingCache || now - billingCacheTime > BILLING_CACHE_DURATION) {
           try {
-            const billingRecords = await api.getAllBillingRecords(50); // Fetch up to 50 pages (5000 records)
+            const billingRecords = await api.getAllBillingRecords(100, monthStart);
             billingCache = billingRecords;
             billingCacheTime = now;
           } catch (billingError) {
@@ -129,13 +132,8 @@ function activate(context) {
           planTotalUsage: 0,
         };
 
-        // 按自然月统计当月消耗
-        const nowDate = new Date();
-        const monthStart = new Date(nowDate.getFullYear(), nowDate.getMonth(), 1, 0, 0, 0, 0).getTime();
-        const monthEnd = nowDate.getTime();
-
         if (billingCache && billingCache.length > 0) {
-          usageStats = api.calculateUsageStats(billingCache, monthStart, monthEnd);
+          usageStats = api.calculateUsageStats(billingCache, monthStart, now);
         }
 
         updateStatusBar(statusBarItem, usageData, usageStats, overseasUsageData, overseasDisplay, language);

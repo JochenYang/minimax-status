@@ -49,7 +49,7 @@ class StatusBar {
 
     lines.push(formatLine('昨日消耗: ', this.usageStats.lastDayUsage));
     lines.push(formatLine('近7天消耗: ', this.usageStats.weeklyUsage));
-    lines.push(formatLine('套餐总消耗: ', this.usageStats.planTotalUsage));
+    lines.push(formatLine('当月消耗: ', this.usageStats.planTotalUsage));
 
     return lines.join('\n');
   }
