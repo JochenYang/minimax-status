@@ -245,14 +245,10 @@ async function main() {
     try {
       const billingRecords = await api.getAllBillingRecords(10);
       if (billingRecords.length > 0) {
-        let planStartTime = 0;
-        if (subscriptionData?.current_subscribe?.current_subscribe_end_time) {
-          const expiryDateStr = subscriptionData.current_subscribe.current_subscribe_end_time;
-          const [month, day, year] = expiryDateStr.split("/").map(Number);
-          planStartTime = new Date(year, month - 2, day).getTime();
-        }
-        const now = Date.now();
-        usageStats = api.calculateUsageStats(billingRecords, planStartTime > 0 ? planStartTime : 0, now);
+        // 按自然月统计当月消耗
+        const now = new Date();
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0).getTime();
+        usageStats = api.calculateUsageStats(billingRecords, monthStart, now.getTime());
       }
     } catch (e) {
       // 忽略账单错误
@@ -295,7 +291,7 @@ async function main() {
       console.log(`  Yesterday: ${result.stats.lastDayFormatted}`);
       console.log(`  7-Days:   ${result.stats.weeklyFormatted}`);
       if (result.stats.planTotalFormatted !== '0') {
-        console.log(`  Period:    ${result.stats.planTotalFormatted}`);
+        console.log(`  This Month: ${result.stats.planTotalFormatted}`);
       }
     }
     console.log(`\n--- JSON ---`);
