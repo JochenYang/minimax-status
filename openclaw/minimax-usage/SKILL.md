@@ -77,13 +77,12 @@ JSON 格式返回以下字段：
 ```bash
 # 在运行 OpenClaw 的服务器上设置环境变量
 export MINIMAX_TOKEN="your_token_here"
-export MINIMAX_GROUP_ID="your_group_id_here"
 ```
 
 或者在启动 OpenClaw 时传入：
 
 ```bash
-MINIMAX_TOKEN=xxx MINIMAX_GROUP_ID=xxx openclaw
+MINIMAX_TOKEN=xxx openclaw
 ```
 
 获取凭据方法：查看本地 `~/.minimax-config.json` 文件

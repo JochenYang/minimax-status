@@ -3,12 +3,12 @@
 /**
  * MiniMax 使用量查询脚本
  * 独立运行，不依赖外部模块
- * 
+ *
  * 使用方式：
  *   node get-usage.js
- * 
+ *
  * 环境变量（服务器场景）：
- *   MINIMAX_TOKEN=xxx MINIMAX_GROUP_ID=xxx node get-usage.js
+ *   MINIMAX_TOKEN=xxx node get-usage.js
  */
 
 const fs = require("fs");
@@ -51,15 +51,13 @@ function request(url, options = {}) {
 class MinimaxAPI {
   constructor() {
     this.token = null;
-    this.groupId = null;
     this.loadConfig();
   }
 
   loadConfig() {
     // 1. 优先使用环境变量
-    if (process.env.MINIMAX_TOKEN && process.env.MINIMAX_GROUP_ID) {
+    if (process.env.MINIMAX_TOKEN) {
       this.token = process.env.MINIMAX_TOKEN;
-      this.groupId = process.env.MINIMAX_GROUP_ID;
       return;
     }
 
@@ -68,7 +66,6 @@ class MinimaxAPI {
       if (fs.existsSync(CONFIG_PATH)) {
         const config = JSON.parse(fs.readFileSync(CONFIG_PATH, "utf8"));
         this.token = config.token;
-        this.groupId = config.groupId;
       }
     } catch (e) {
       // 忽略错误
@@ -279,9 +276,32 @@ async function main() {
       } : null
     };
 
+    // 人类可读摘要
+    const usagePct = usageData.usage.percentage;
+    const weeklyPct = usageData.weekly.percentage;
+    const usageBar = '█'.repeat(Math.floor(usagePct / 10)) + '░'.repeat(10 - Math.floor(usagePct / 10));
+    const weeklyBar = '█'.repeat(Math.floor(weeklyPct / 10)) + '░'.repeat(10 - Math.floor(weeklyPct / 10));
+
+    console.log(`\n[MiniMax Usage]`);
+    console.log(`  Current:   [${usageBar}] ${usagePct}% (${usageData.usage.used}/${usageData.usage.total})`);
+    console.log(`  Reset:     ${usageData.remaining.text}`);
+    console.log(`  Weekly:    [${weeklyBar}] ${weeklyPct}% (${api.formatNumber(usageData.weekly.used)})`);
+    console.log(`  W-Reset:   ${usageData.weekly.text}`);
+    if (usageData.expiry) {
+      console.log(`  Expiry:    ${usageData.expiry.text} (${usageData.expiry.date})`);
+    }
+    if (result.stats) {
+      console.log(`\n[Token Stats]`);
+      console.log(`  Yesterday: ${result.stats.lastDayFormatted}`);
+      console.log(`  7-Days:   ${result.stats.weeklyFormatted}`);
+      if (result.stats.planTotalFormatted !== '0') {
+        console.log(`  Period:    ${result.stats.planTotalFormatted}`);
+      }
+    }
+    console.log(`\n--- JSON ---`);
     console.log(JSON.stringify(result, null, 2));
   } catch (error) {
-    console.error(JSON.stringify({ error: error.message }));
+    console.error(`❌ 错误: ${error.message}`);
     process.exit(1);
   }
 }
