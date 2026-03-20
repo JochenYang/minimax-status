@@ -89,7 +89,7 @@ npm run package
 
 1. 安装扩展后，点击状态栏的 "MiniMax 未配置" 按钮
 2. 或使用命令 "MiniMax Status: 配置向导"
-3. 输入您的 API Key（GroupID 可选，已废弃）
+3. 输入您的 API Key
 4. 配置完成后，状态栏将显示实时使用状态
 
 > **注意**: 扩展尚未发布到 VSCode 市场，需要手动安装
@@ -272,7 +272,7 @@ minimax-status │ main * │ Usage █░░░░░░░░ 10% (4047/4500) 
 
 | 命令                    | 描述                                        | 示例                        |
 | --------------------- | ------------------------------------------- | ----------------------------- |
-| `minimax auth`        | 设置认证凭据（groupId 已废弃）               | `minimax auth <token>`         |
+| `minimax auth`        | 设置认证凭据                                 | `minimax auth <token>`         |
 | `minimax status`      | 显示当前使用状态（支持 --compact、--watch） | `minimax status`                 |
 | `minimax bar`         | 终端底部持续状态栏                          | `minimax bar`                    |
 | `minimax statusline`  | Claude Code 状态栏集成                      | 用于 Claude Code 配置            |
@@ -321,8 +321,7 @@ minimax-status │ main * │ Usage █░░░░░░░░ 10% (4047/4500) 
 
 ```json
 {
-  "token": "your_access_token_here",
-  "groupId": "deprecated"
+  "token": "your_access_token_here"
 }
 ```
 
