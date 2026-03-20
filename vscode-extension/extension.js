@@ -129,38 +129,13 @@ function activate(context) {
           planTotalUsage: 0,
         };
 
-        // 计算套餐有效期的起止时间
-        // 注意：current_credit_reload_time 是下次充值日期（与到期时间相同），
-        //       不是当前周期开始时间，需要从到期时间往前推 1 个月计算。
-        let planStartTime = 0;
-        let planEndTime = 0;
-        if (subscriptionData && subscriptionData.current_subscribe) {
-          const sub = subscriptionData.current_subscribe;
-          if (sub.current_subscribe_end_time) {
-            const endDateStr = sub.current_subscribe_end_time;
-            // 格式: MM/DD/YYYY -> Date
-            const [eMonth, eDay, eYear] = endDateStr.split('/').map(Number);
-            planEndTime = new Date(eYear, eMonth - 1, eDay, 23, 59, 59, 999).getTime();
-            // 套餐开始时间 = 到期时间往前推 1 个月（JS Date 自动处理月份溢出）
-            planStartTime = new Date(eYear, eMonth - 2, eDay).getTime();
-          }
-        }
+        // 按自然月统计当月消耗
+        const now = new Date();
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0).getTime();
+        const monthEnd = now.getTime();
 
         if (billingCache && billingCache.length > 0) {
-          // 从账单记录中计算时间范围
-          let minTimestamp = Infinity;
-          let maxTimestamp = 0;
-          for (const record of billingCache) {
-            const createdAt = (record.created_at || 0) * 1000;
-            if (createdAt < minTimestamp) minTimestamp = createdAt;
-            if (createdAt > maxTimestamp) maxTimestamp = createdAt;
-          }
-
-          usageStats = api.calculateUsageStats(
-            billingCache,
-            planStartTime > 0 ? planStartTime : minTimestamp, // 使用套餐开始时间
-            planEndTime > 0 ? planEndTime : now // 使用套餐到期时间
-          );
+          usageStats = api.calculateUsageStats(billingCache, monthStart, monthEnd);
         }
 
         updateStatusBar(statusBarItem, usageData, usageStats, overseasUsageData, overseasDisplay, language);
@@ -868,7 +843,7 @@ function updateStatusBar(statusBarItem, data, usageStats, overseasData = null, d
       billingStats: "=== Token 消耗统计 ===",
       yesterday: "昨日消耗",
       last7Days: "近7天消耗",
-      totalUsage: "套餐总消耗",
+      totalUsage: "当月消耗",
       expiry: "套餐到期",
       clickToRefresh: "点击刷新状态",
     },
@@ -884,7 +859,7 @@ function updateStatusBar(statusBarItem, data, usageStats, overseasData = null, d
       billingStats: "=== Token Usage Stats ===",
       yesterday: "Yesterday",
       last7Days: "Last 7 days",
-      totalUsage: "Total usage",
+      totalUsage: "This month",
       expiry: "Expires",
       clickToRefresh: "Click to refresh",
     }

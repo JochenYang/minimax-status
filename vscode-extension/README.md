@@ -85,7 +85,7 @@
 === Token 消耗统计 ===
 昨日消耗: 0.83亿
 近7天消耗: 5.79亿
-套餐总消耗: 21.42亿
+当月消耗: 21.42亿
 到期: 03/26/2026 (还剩 8 天)
 
 点击刷新状态
@@ -105,7 +105,7 @@ Weekly Reset: 4d 4h until reset
 === Token Usage Stats ===
 Yesterday: 83.40M
 Last 7 days: 578.79M
-Total usage: 2.14B
+This month: 2.14B
 Expires: 03/26/2026 (8 days remaining)
 
 Click to refresh

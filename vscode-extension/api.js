@@ -192,7 +192,7 @@ class MinimaxAPI {
         stats.weeklyUsage += tokens;
       }
 
-      // 套餐期内总消耗（使用套餐的有效期时间范围）
+      // 当月消耗
       if (createdAt >= planStartMs && createdAt <= planEndMs) {
         stats.planTotalUsage += tokens;
       }
