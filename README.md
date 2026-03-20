@@ -1,13 +1,14 @@
 # MiniMax StatusBar
 
-[![npm version](https://img.shields.io/npm/v/minimax-status.svg)](https://www.npmjs.com/package/minimax-status)
-[![npm downloads](https://img.shields.io/npm/dm/minimax-status.svg)](https://www.npmjs.com/package/minimax-status)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![VSCode Extension Build](https://github.com/JochenYang/minimax-status/actions/workflows/build-vscode-extension.yml/badge.svg)](https://github.com/JochenYang/minimax-status/actions/workflows/build-vscode-extension.yml)
-
 MiniMax coding-plan 使用状态监控工具，支持 CLI 命令和 Claude Code 状态栏集成。
 
-![MiniMax StatusBar](https://img.shields.io/badge/StatusBar-MiniMax-blue?style=flat-square)
+## 版本
+
+| 插件 | 版本 | 安装方式 |
+|------|------|----------|
+| **CLI** | 1.1.9 | `npm install -g minimax-status` |
+| **VSCode** | 1.2.6 | [VSCode Marketplace](https://marketplace.visualstudio.com/items?itemName=JochenYang.minimax-status-vscode) 或 [下载 VSIX](https://github.com/JochenYang/minimax-status/releases) |
+| **OpenClaw** | - | 参考 `openclaw/minimax-usage/` 目录 |
 
 ## 特性
 
@@ -67,7 +68,12 @@ minimax status --watch
 
 ### 安装方式
 
-**方式一：下载 VSIX 文件**
+**方式一：从 VSCode 市场安装（推荐）**
+
+1. 在 VSCode 中搜索 "MiniMax Status"
+2. 点击安装
+
+**方式二：下载 VSIX 文件**
 
 1. 访问 [GitHub Releases](https://github.com/JochenYang/minimax-status/releases)
 2. 下载最新的 `.vsix` 文件
@@ -91,8 +97,6 @@ npm run package
 2. 或使用命令 "MiniMax Status: 配置向导"
 3. 输入您的 API Key
 4. 配置完成后，状态栏将显示实时使用状态
-
-> **注意**: 扩展尚未发布到 VSCode 市场，需要手动安装
 
 ## Claude Code 集成
 
