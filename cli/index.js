@@ -29,9 +29,9 @@ program
   .command("auth")
   .description("设置认证凭据")
   .argument("<token>", "MiniMax 访问令牌")
-  .argument("<groupId>", "MiniMax 组 ID")
+  .argument("[groupId]", "MiniMax 组 ID（已废弃，可不填）")
   .action((token, groupId) => {
-    api.setCredentials(token, groupId);
+    api.setCredentials(token, groupId || null);
     console.log(chalk.green("✓ 认证信息已保存"));
   });
 

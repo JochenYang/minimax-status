@@ -82,7 +82,6 @@ class MinimaxAPI {
       const response = await axios.get(
         `https://www.minimaxi.com/v1/api/openplatform/coding_plan/remains`,
         {
-          params: { GroupId: this.groupId },
           headers: {
             Authorization: `Bearer ${this.token}`,
             Accept: "application/json",
@@ -124,7 +123,6 @@ class MinimaxAPI {
             biz_line: 2,
             cycle_type: 1,
             resource_package_type: 7,
-            GroupId: this.groupId,
           },
           headers: {
             Authorization: `Bearer ${this.token}`,
@@ -157,7 +155,6 @@ class MinimaxAPI {
             page: page,
             limit: limit,
             aggregate: false,
-            GroupId: this.groupId,
           },
           headers: {
             Authorization: `Bearer ${this.token}`,

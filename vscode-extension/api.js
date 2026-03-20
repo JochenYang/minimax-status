@@ -31,15 +31,14 @@ class MinimaxAPI {
   }
 
   async getUsageStatus() {
-    if (!this.token || !this.groupId) {
-      throw new Error("请在设置中配置 MiniMax 访问令牌和组 ID");
+    if (!this.token) {
+      throw new Error("请在设置中配置 MiniMax 访问令牌");
     }
 
     try {
       const response = await axios.get(
         `https://www.minimaxi.com/v1/api/openplatform/coding_plan/remains`,
         {
-          params: { GroupId: this.groupId },
           headers: {
             Authorization: `Bearer ${this.token}`,
             Accept: "application/json",
@@ -84,8 +83,8 @@ class MinimaxAPI {
   }
 
   async getSubscriptionDetails() {
-    if (!this.token || !this.groupId) {
-      throw new Error("请在设置中配置 MiniMax 访问令牌和组 ID");
+    if (!this.token) {
+      throw new Error("请在设置中配置 MiniMax 访问令牌");
     }
 
     try {
@@ -96,7 +95,6 @@ class MinimaxAPI {
             biz_line: 2,
             cycle_type: 1,
             resource_package_type: 7,
-            GroupId: this.groupId,
           },
           headers: {
             Authorization: `Bearer ${this.token}`,
@@ -122,8 +120,8 @@ class MinimaxAPI {
    * @returns {Promise<Object>} Billing records response
    */
   async getBillingRecords(page = 1, limit = 100) {
-    if (!this.token || !this.groupId) {
-      throw new Error("请在设置中配置 MiniMax 访问令牌和组 ID");
+    if (!this.token) {
+      throw new Error("请在设置中配置 MiniMax 访问令牌");
     }
 
     try {
@@ -134,7 +132,6 @@ class MinimaxAPI {
             page: page,
             limit: limit,
             aggregate: false,
-            GroupId: this.groupId,
           },
           headers: {
             Authorization: `Bearer ${this.token}`,

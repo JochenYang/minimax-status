@@ -76,11 +76,11 @@ class MinimaxAPI {
   }
 
   async getUsageStatus() {
-    if (!this.token || !this.groupId) {
-      throw new Error("Missing credentials. Set MINIMAX_TOKEN and MINIMAX_GROUP_ID env vars, or run 'minimax auth' locally");
+    if (!this.token) {
+      throw new Error("Missing token. Set MINIMAX_TOKEN env var, or run 'minimax auth' locally");
     }
 
-    const url = `https://www.minimaxi.com/v1/api/openplatform/coding_plan/remains?GroupId=${this.groupId}`;
+    const url = `https://www.minimaxi.com/v1/api/openplatform/coding_plan/remains`;
     const data = await request(url, {
       headers: {
         Authorization: `Bearer ${this.token}`,
@@ -91,9 +91,9 @@ class MinimaxAPI {
   }
 
   async getSubscriptionDetails() {
-    if (!this.token || !this.groupId) return null;
+    if (!this.token) return null;
 
-    const url = `https://www.minimaxi.com/v1/api/openplatform/charge/combo/cycle_audio_resource_package?biz_line=2&cycle_type=1&resource_package_type=7&GroupId=${this.groupId}`;
+    const url = `https://www.minimaxi.com/v1/api/openplatform/charge/combo/cycle_audio_resource_package?biz_line=2&cycle_type=1&resource_package_type=7`;
     try {
       return await request(url, {
         headers: {
@@ -107,11 +107,11 @@ class MinimaxAPI {
   }
 
   async getBillingRecords(page = 1, limit = 100) {
-    if (!this.token || !this.groupId) {
-      throw new Error("Missing credentials");
+    if (!this.token) {
+      throw new Error("Missing token");
     }
 
-    const url = `https://www.minimaxi.com/account/amount?page=${page}&limit=${limit}&aggregate=false&GroupId=${this.groupId}`;
+    const url = `https://www.minimaxi.com/account/amount?page=${page}&limit=${limit}&aggregate=false`;
     return await request(url, {
       headers: {
         Authorization: `Bearer ${this.token}`,

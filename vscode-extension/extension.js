@@ -232,11 +232,11 @@ function activate(context) {
     );
 
     // Always show status bar item
-    if (!api.token || !api.groupId) {
+    if (!api.token) {
       statusBarItem.text = "MiniMax: 需要配置";
       statusBarItem.color = new vscode.ThemeColor("warningForeground");
       statusBarItem.tooltip =
-        "MiniMax Status 需要配置 Token 和 GroupId\n点击立即配置";
+        "MiniMax Status 需要配置 Token\n点击立即配置";
       statusBarItem.command = "minimaxStatus.setup";
 
       setTimeout(() => {
@@ -428,9 +428,9 @@ async function showSettingsWebView(context, api, updateStatus) {
       apiKey: "API Key",
       apiKeyPlaceholder: "请输入国内 API Key",
       apiKeyInfo: "platform.minimaxi.com 的 API Key",
-      groupId: "GroupID",
-      groupIdPlaceholder: "请输入 groupID",
-      groupIdInfo: "国内账号的 GroupID",
+      groupId: "GroupID（可选）",
+      groupIdPlaceholder: "已废弃，可不填",
+      groupIdInfo: "国内账号的 GroupID（已废弃）",
       overseasApiKeyPlaceholder: "请输入海外 API Key",
       overseasApiKeyInfo: "platform.minimax.io 的 API Key（用于显示海外用量）",
       overseasGroupIdPlaceholder: "请输入 groupID",
@@ -449,12 +449,11 @@ async function showSettingsWebView(context, api, updateStatus) {
       save: "保存",
       cancel: "取消",
       apiKeyError: "请输入 API Key",
-      groupIdError: "请输入 groupID",
       overseasApiKeyError: "请输入海外 API Key",
       overseasGroupIdError: "请输入海外 groupID",
       invalidInterval: "刷新间隔必须在 5-300 秒之间",
       modelAuto: "自动选择第一个模型",
-      modelEmpty: "请先配置 API Key 和 groupID",
+      modelEmpty: "请先配置 API Key",
     },
     "en-US": {
       title: "MiniMax Settings",
@@ -463,9 +462,9 @@ async function showSettingsWebView(context, api, updateStatus) {
       apiKey: "API Key",
       apiKeyPlaceholder: "Enter domestic API Key",
       apiKeyInfo: "platform.minimaxi.com API Key",
-      groupId: "GroupID",
-      groupIdPlaceholder: "Enter groupID",
-      groupIdInfo: "Domestic account GroupID",
+      groupId: "GroupID (Optional)",
+      groupIdPlaceholder: "Deprecated, can be left empty",
+      groupIdInfo: "Domestic account GroupID (Deprecated)",
       overseasApiKeyPlaceholder: "Enter overseas API Key",
       overseasApiKeyInfo: "platform.minimax.io API Key (for overseas usage)",
       overseasGroupIdPlaceholder: "Enter groupID",
@@ -484,20 +483,19 @@ async function showSettingsWebView(context, api, updateStatus) {
       save: "Save",
       cancel: "Cancel",
       apiKeyError: "API Key is required",
-      groupIdError: "GroupID is required",
       overseasApiKeyError: "Overseas API Key is required",
       overseasGroupIdError: "Overseas GroupID is required",
       invalidInterval: "Refresh interval must be between 5-300 seconds",
       modelAuto: "Auto select first model",
-      modelEmpty: "Please configure API Key and groupID first",
+      modelEmpty: "Please configure API Key first",
     }
   };
 
   const t = i18n[currentLanguage] || i18n["zh-CN"];
 
-  // Fetch available models if token and groupId are configured
+  // Fetch available models if token is configured
   let availableModels = [];
-  if (currentToken && currentGroupId) {
+  if (currentToken) {
     try {
       const statusData = await api.getUsageStatus();
       const parsedData = api.parseUsageData(statusData, null);
@@ -757,11 +755,6 @@ async function showSettingsWebView(context, api, updateStatus) {
 
                 if (!token) {
                     document.getElementById('token-error').textContent = t.apiKeyError;
-                    hasError = true;
-                }
-
-                if (!groupId) {
-                    document.getElementById('groupId-error').textContent = t.groupIdError;
                     hasError = true;
                 }
 

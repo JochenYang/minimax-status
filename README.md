@@ -37,17 +37,16 @@ npm update -g minimax-status
 ### 3. 配置认证
 
 ```bash
-minimax auth <token> <groupId>
+minimax auth <token>
 ```
 
 配置信息将保存在 `~/.minimax-config.json` 文件中。
 
-获取令牌和组 ID:
+获取令牌:
 
 1. 访问 [MiniMax 开放平台](https://platform.minimaxi.com/user-center/payment/coding-plan)
 2. 登录并进入控制台
-3. 账户信息中复制 groupID
-4. Coding Plan 中创建或获取 API Key
+3. Coding Plan 中创建或获取 API Key
 
 ### 4. 查看状态
 
@@ -90,7 +89,7 @@ npm run package
 
 1. 安装扩展后，点击状态栏的 "MiniMax 未配置" 按钮
 2. 或使用命令 "MiniMax Status: 配置向导"
-3. 输入您的 API Key 和 GroupID
+3. 输入您的 API Key（GroupID 可选，已废弃）
 4. 配置完成后，状态栏将显示实时使用状态
 
 > **注意**: 扩展尚未发布到 VSCode 市场，需要手动安装
@@ -105,7 +104,7 @@ npm run package
 
    ```bash
    npm install -g minimax-status
-   minimax auth <token> <groupId>
+   minimax auth <token>
    ```
 
 2. **配置 Claude Code**:
@@ -190,7 +189,7 @@ my-app │ main * │ ...
 
    ```bash
    npm install -g minimax-status
-   minimax auth <token> <groupId>
+   minimax auth <token>
    ```
 
 2. **配置 Droid**:
@@ -271,9 +270,9 @@ minimax-status │ main * │ Usage █░░░░░░░░ 10% (4047/4500) 
 
 ## 命令说明
 
-| 命令                    | 描述                                        | 示例                             |
-| --------------------- | ------------------------------------------- | -------------------------------- |
-| `minimax auth`        | 设置认证凭据                                | `minimax auth <token> <groupId>` |
+| 命令                    | 描述                                        | 示例                        |
+| --------------------- | ------------------------------------------- | ----------------------------- |
+| `minimax auth`        | 设置认证凭据（groupId 已废弃）               | `minimax auth <token>`         |
 | `minimax status`      | 显示当前使用状态（支持 --compact、--watch） | `minimax status`                 |
 | `minimax bar`         | 终端底部持续状态栏                          | `minimax bar`                    |
 | `minimax statusline`  | Claude Code 状态栏集成                      | 用于 Claude Code 配置            |
@@ -323,7 +322,7 @@ minimax-status │ main * │ Usage █░░░░░░░░ 10% (4047/4500) 
 ```json
 {
   "token": "your_access_token_here",
-  "groupId": "your_group_id_here"
+  "groupId": "deprecated"
 }
 ```
 
@@ -359,11 +358,11 @@ npm install -g minimax-status
 ### 认证失败
 
 ```bash
-# 检查令牌和组 ID
+# 检查令牌
 minimax status
 
 # 重新设置认证
-minimax auth <new_token> <new_groupId>
+minimax auth <new_token>
 ```
 
 ### 状态栏不显示
