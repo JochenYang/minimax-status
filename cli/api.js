@@ -62,9 +62,9 @@ class MinimaxAPI {
   }
 
   async getUsageStatus(forceRefresh = false) {
-    if (!this.token || !this.groupId) {
+    if (!this.token) {
       throw new Error(
-        'Missing credentials. Please run "minimax-status auth <token> <groupId>" first'
+        'Missing credentials. Please run "minimax-status auth <token>" first'
       );
     }
 

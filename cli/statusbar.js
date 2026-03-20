@@ -45,7 +45,7 @@ class TerminalStatusBar {
 
     if (!require('fs').existsSync(configPath)) {
       console.log(chalk.red('错误：未找到配置文件'));
-      console.log(chalk.yellow('请先运行: minimax-status auth <token> <groupId>'));
+      console.log(chalk.yellow('请先运行: minimax-status auth <token>'));
       process.exit(1);
     }
 
