@@ -48,6 +48,8 @@ Thumbs.db
 
 # 项目特定
 .claude-config.json
+repo
+docs
 
 # Worktrees
 .worktrees/

@@ -6,6 +6,8 @@ vscode-extension/
 INSTALL.md
 QUICKSTART.md
 USAGE.md
+repo
+docs
 
 # 开发依赖
 node_modules/

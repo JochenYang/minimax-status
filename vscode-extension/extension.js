@@ -1112,38 +1112,37 @@ function updateStatusBar(statusBarItem, api, data, apiData, usageStats, overseas
     const used = tm.totalCount - tm.remainingCount;
     const usedPercent = getUsedPercent(tm);
     tooltip.push(`[${tm.name}]`);
-    tooltip.push(`${formatProgressBar(usedPercent)} ${usedPercent}% (${formatNum(used)}/${formatNum(tm.totalCount)})`);
-    tooltip.push(`${language === 'en-US' ? 'Reset' : '重置'}: ${tm.remainingTime.text}${timeWindow ? ' (' + timeWindow + ')' : ''}`);
-    tooltip.push(`${language === 'en-US' ? 'Cycle quota' : '周期额'}: ${tm.weeklyUnlimited ? (language === 'en-US' ? 'Unlimited' : '不受限制') : formatNum(tm.weeklyRemainingCount) + '/' + formatNum(tm.weeklyTotal)}`);
+    tooltip.push(`  ${language === 'en-US' ? 'Usage' : '使用'}: ${usedPercent}% (${formatNum(used)}/${formatNum(tm.totalCount)})`);
+    tooltip.push(`  ${language === 'en-US' ? 'Reset' : '重置'}: ${tm.remainingTime.text}${timeWindow ? ' (' + timeWindow + ')' : ''}`);
+    tooltip.push(`  ${language === 'en-US' ? 'Weekly quota' : '周限额'}: ${tm.weeklyUnlimited ? (language === 'en-US' ? 'Unlimited' : '不受限制') : formatNum(tm.weeklyRemainingCount) + '/' + formatNum(tm.weeklyTotal)}`);
+    // 有限额时显示周重置时间
+    if (!tm.weeklyUnlimited) {
+      tooltip.push(`  ${language === 'en-US' ? 'Weekly reset' : '周重置'}: ${tm.weeklyRemainingTime.days}${language === 'en-US' ? 'd' : '天'}${tm.weeklyRemainingTime.hours}${language === 'en-US' ? 'h' : '小时'}`);
+    }
+    tooltip.push("");
   }
 
-  // Add TTS model
+  // Add TTS model (speech-hd 只有日配额，每日 00:00 重置)
   if (allModelsData.ttsModel) {
     const tm = allModelsData.ttsModel;
     const used = tm.totalCount - tm.remainingCount;
     const usedPercent = getUsedPercent(tm);
     tooltip.push(`[${tm.name}]`);
-    tooltip.push(`${formatProgressBar(usedPercent)} ${usedPercent}% (${formatNum(used)}/${formatNum(tm.totalCount)})`);
-    tooltip.push(`${language === 'en-US' ? 'Daily quota' : '日配额'}: ${getStatusText(tm)}${formatWeeklyRemaining(tm, true)}`);
-    // 周重置时间单独一行
-    if (!tm.weeklyUnlimited) {
-      tooltip.push(`${language === 'en-US' ? 'Weekly reset' : '周重置'}: ${tm.weeklyRemainingTime.days}${language === 'en-US' ? 'd' : '天'}${tm.weeklyRemainingTime.hours}${language === 'en-US' ? 'h' : '小时'}`);
-    }
+    tooltip.push(`  ${language === 'en-US' ? 'Usage' : '使用'}: ${usedPercent}% (${formatNum(used)}/${formatNum(tm.totalCount)})`);
+    tooltip.push(`  ${language === 'en-US' ? 'Daily quota' : '日配额'}: ${getStatusText(tm)}`);
+    tooltip.push(`  ${language === 'en-US' ? 'Reset at' : '重置'}: 00:00`);
+    tooltip.push("");
   }
 
   // Add other models (small quota models: Hailuo, music, image)
   if (allModelsData.otherModels.length > 0) {
-    tooltip.push("");  // 空行分隔
-    tooltip.push(`[${language === 'en-US' ? 'Other Models' : '其他模型'}]`);
+    // 其他模型重置时间统一在标题后面
+    tooltip.push(`[${language === 'en-US' ? 'Other Models' : '其他模型'}] (${language === 'en-US' ? 'Reset at 00:00' : '00:00 重置'})`);
     for (const model of allModelsData.otherModels) {
-      // 小额度模型不显示周限额
-      const showWeekly = !model.isSmallQuotaModel;
       const used = model.totalCount - model.remainingCount;
-      const usedPercent = getUsedPercent(model);
-      tooltip.push(`${model.name}`);
-      tooltip.push(`${formatProgressBar(usedPercent)} ${usedPercent}% (${formatNum(used)}/${formatNum(model.totalCount)})`);
-      tooltip.push(`${language === 'en-US' ? 'Daily quota' : '日配额'}: ${getStatusText(model)}${formatWeeklyRemaining(model, showWeekly)}`);
+      tooltip.push(`  ${model.name}  (${formatNum(used)}/${formatNum(model.totalCount)})`);
     }
+    tooltip.push("");
   }
 
   // 套餐到期时间
