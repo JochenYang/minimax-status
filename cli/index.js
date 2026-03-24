@@ -138,8 +138,9 @@ program
       if (options.compact) {
         console.log(statusBar.renderCompact());
       } else {
-        console.log("\n" + statusBar.render() + "\n");
-        console.log(StatusBar.renderAllModels(allModels) + "\n");
+        // 将 allModels 传入 StatusBar 内部渲染
+        const statusBarWithModels = new StatusBar(usageData, usageStats, api, allModels);
+        console.log("\n" + statusBarWithModels.render() + "\n");
       }
 
       if (options.watch) {
@@ -167,11 +168,10 @@ program
       ]);
       const usageData = api.parseUsageData(apiData, subscriptionData);
       const allModels = api.parseAllModels(apiData);
-      const statusBar = new StatusBar(usageData);
 
       spinner.succeed("状态获取成功");
-      console.log("\n" + statusBar.render() + "\n");
-      console.log(StatusBar.renderAllModels(allModels) + "\n");
+      const statusBarWithModels = new StatusBar(usageData, null, null, allModels);
+      console.log("\n" + statusBarWithModels.render() + "\n");
     } catch (error) {
       spinner.fail(chalk.red("获取状态失败"));
       console.error(chalk.red(`错误: ${error.message}`));

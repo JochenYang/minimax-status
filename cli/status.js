@@ -4,10 +4,11 @@ const { default: boxen } = require('boxen');
 const { default: stringWidth } = require('string-width');
 
 class StatusBar {
-  constructor(data, usageStats = null, api = null) {
+  constructor(data, usageStats = null, api = null, allModels = []) {
     this.data = data;
     this.usageStats = usageStats;
     this.api = api;
+    this.allModels = allModels;
     this.totalWidth = 63; // 总宽度包括边框
     this.borderWidth = 4; // '│ ' (2) + ' │' (2) = 4
   }
@@ -33,6 +34,7 @@ class StatusBar {
     }
 
     const lines = [];
+
     lines.push('');
     lines.push(chalk.bold('📊 Token 消耗统计'));
 
@@ -50,6 +52,56 @@ class StatusBar {
     lines.push(formatLine('昨日消耗: ', this.usageStats.lastDayUsage));
     lines.push(formatLine('近7天消耗: ', this.usageStats.weeklyUsage));
     lines.push(formatLine('当月消耗: ', this.usageStats.planTotalUsage));
+
+    return lines.join('\n');
+  }
+
+  // 渲染所有模型额度区块
+  renderAllModelsSection() {
+    if (!this.allModels || this.allModels.length === 0) {
+      return '';
+    }
+
+    const lines = [];
+    lines.push('');
+    lines.push(chalk.bold('📋 所有模型额度'));
+
+    // 简化模型名称映射
+    const shortName = (name) => {
+      if (name.includes('MiniMax-M')) return 'MiniMax-M*';
+      if (name.includes('speech')) return 'speech-hd';
+      if (name.includes('Hailuo-2.3-Fast')) return 'Hailuo';
+      if (name.includes('Hailuo-2.3')) return 'Hailuo-2.3';
+      if (name.includes('Hailuo')) return 'Hailuo';
+      if (name.includes('music')) return 'music';
+      if (name.includes('image')) return 'image';
+      return name.length > 15 ? name.substring(0, 12) + '...' : name;
+    };
+
+    // 获取状态颜色
+    const getStatusColor = (percentage) => {
+      if (percentage >= 85) return chalk.red;
+      if (percentage >= 60) return chalk.yellow;
+      return chalk.green;
+    };
+
+    // 显示状态
+    const getStatusText = (percentage) => {
+      if (percentage >= 85) return '⚠';
+      if (percentage >= 60) return '⚡';
+      return '✓';
+    };
+
+    // 每行显示一个模型
+    for (const model of this.allModels) {
+      const short = shortName(model.name);
+      const color = getStatusColor(model.percentage);
+      const status = getStatusText(model.percentage);
+      const pct = `${model.percentage}%`;
+      const usedTotal = `${model.used}/${model.total}`;
+
+      lines.push(`  ${color(short.padEnd(15))} ${color(pct.padEnd(5))} ${color(usedTotal.padEnd(12))} ${color(status)}`);
+    }
 
     return lines.join('\n');
   }
@@ -139,6 +191,11 @@ class StatusBar {
     // 添加消耗统计（如果有数据）
     if (this.usageStats) {
       contentLines.push(this.renderConsumptionStats());
+    }
+
+    // 添加所有模型额度（如果有数据）
+    if (this.allModels && this.allModels.length > 0) {
+      contentLines.push(this.renderAllModelsSection());
     }
 
     contentLines.push('');
