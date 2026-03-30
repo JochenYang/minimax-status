@@ -1053,78 +1053,121 @@ function updateStatusBar(statusBarItem, api, data, apiData, usageStats, overseas
     statusBarItem.text = `$(clock) ${remainingText} ${percentage}%${weeklyText}`;
   }
 
-  // Build tooltip with Markdown list for proper alignment
+  // ── Build tooltip with table layout (panel-style) ──────────────────
   const allModelsData = api.parseAllModelsForTooltip(apiData);
   const md = new vscode.MarkdownString();
-  md.isTrusted = true; // Enable full Markdown rendering
+  md.isTrusted = true;
+  md.supportHtml = true;
 
-  // Helper function to format number
+  const isEn = language === 'en-US';
+
+  // Helper: format number with 万/亿 or K/M shorthand
   const formatNum = (num) => {
-    if (num >= 100000000) {
-      return (num / 100000000).toFixed(1).replace(/\.0$/, "") + "亿";
+    if (isEn) {
+      if (num >= 1000000) return (num / 1000000).toFixed(1).replace(/\.0$/, "") + "M";
+      if (num >= 1000) return (num / 1000).toFixed(1).replace(/\.0$/, "") + "K";
+      return num.toLocaleString("en-US");
     }
-    if (num >= 10000) {
-      return (num / 10000).toFixed(1).replace(/\.0$/, "") + "万";
-    }
+    if (num >= 100000000) return (num / 100000000).toFixed(1).replace(/\.0$/, "") + "亿";
+    if (num >= 10000) return (num / 10000).toFixed(1).replace(/\.0$/, "") + "万";
     return num.toLocaleString("zh-CN");
   };
 
-  // Helper to format model display name (shorten Hailuo models)
-  const getModelDisplayName = (model) => {
-    const name = model.name || '';
-    if (name.includes('Hailuo-2.3-Fast-6s-768p')) return 'Hailuo-2.3-Fast';
-    if (name.includes('Hailuo-2.3-6s-768p')) return 'Hailuo-2.3';
-    if (name.includes('Hailuo')) return 'Hailuo';
-    if (name.includes('music')) return 'music';
-    if (name.includes('image')) return 'image';
-    if (name.includes('speech-hd')) return 'speech-hd';
-    if (name.includes('MiniMax-M')) return 'MiniMax-M*';
-    return name;
+  // Helper: colored percentage span
+  const pctSpan = (pct) => {
+    const color = pct < 60 ? '#4ec9b0' : pct < 85 ? '#dcdcaa' : '#f44747';
+    return `<span style="color:${color}"><strong>${pct}%</strong></span>`;
   };
 
-  let mdContent = '';
-
-  // Title
-  mdContent += `**[ ${language === 'en-US' ? 'Token Plan' : '套餐额度'} ]**\n`;
-
-  // MiniMax-M* section
-  if (allModelsData.textModel) {
-    const m = allModelsData.textModel;
-    const used = m.totalCount - m.remainingCount;
-    const pct = m.totalCount > 0 ? Math.round((used / m.totalCount) * 100) : 0;
-    mdContent += `**MiniMax-M***\n`;
-    mdContent += `- ${pct}% · ${used}/${formatNum(m.totalCount)}\n`;
-    mdContent += `- ${language === 'en-US' ? 'Reset' : '重置'}: ${m.remainingTime.text}\n`;
-    mdContent += `- ${language === 'en-US' ? 'Weekly' : '周限额'}: ${m.weeklyUnlimited ? (language === 'en-US' ? 'Unlimited' : '不受限制') : formatNum(m.weeklyRemainingCount) + '/' + formatNum(m.weeklyTotal)}\n`;
+  // ── Period header (use weekly period from API, not the 5h interval) ──
+  let periodText = '';
+  const fmt = (ts) => {
+    if (!ts) return '';
+    const d = new Date(ts);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+  if (apiData.model_remains && apiData.model_remains.length > 0) {
+    const firstModel = apiData.model_remains[0];
+    periodText = `${fmt(firstModel.weekly_start_time)} — ${fmt(firstModel.weekly_end_time)}`;
+  } else if (planTimeWindow) {
+    periodText = `${fmt(planTimeWindow.start)} — ${fmt(planTimeWindow.end)}`;
   }
 
-  // Daily models section
-  const dailyModels = allModelsData.models?.filter(m => !m.isTextModel) || [];
-  if (dailyModels.length > 0) {
-    mdContent += `\n**[ ${language === 'en-US' ? 'Daily (00:00)' : '日限额 (00:00)'} ]**\n`;
+  let content = '';
+  content += `**MINIMAX** &ensp; ${isEn ? 'Quota Panel' : '配额面板'}`;
+  content += ` &emsp; ${isEn ? 'Period' : '周期'}：**${periodText}**\n\n`;
+  content += `---\n\n`;
 
-    for (const m of dailyModels) {
-      const used = m.totalCount - m.remainingCount;
-      const pct = m.totalCount > 0 ? Math.round((used / m.totalCount) * 100) : 0;
-      const name = getModelDisplayName(m);
-      mdContent += `- ${name}: ${pct}% · ${used}/${formatNum(m.totalCount)}\n`;
+  // ── Model table (HTML for full-width control) ────────────────────
+  const models = allModelsData.models || [];
+  const colModel = isEn ? 'Model' : '模型';
+  const colUsage = isEn ? 'Usage' : '用量';
+  const colPct   = isEn ? '%' : '占比';
+  const colWeek  = isEn ? 'Weekly' : '每周';
+  const colReset = isEn ? 'Reset' : '重置';
+
+  // Use HTML table with width=100% so columns spread across full tooltip width
+  const thStyle = 'style="padding:2px 6px;font-weight:normal;opacity:0.7"';
+  const tdStyle = 'style="padding:2px 6px"';
+  content += `<table width="100%" cellspacing="0" cellpadding="0">\n`;
+  content += `<tr>`;
+  content += `<th align="left" ${thStyle}>${colModel}</th>`;
+  content += `<th align="right" ${thStyle}>${colUsage}</th>`;
+  content += `<th align="right" ${thStyle}>${colPct}</th>`;
+  content += `<th align="right" ${thStyle}>${colWeek}</th>`;
+  content += `<th align="right" ${thStyle}>${colReset}</th>`;
+  content += `</tr>\n`;
+
+  for (const m of models) {
+    const used = m.usedCount;
+    const total = m.totalCount;
+    const pct = total > 0 ? Math.round((used / total) * 100) : 0;
+
+    // Reset time
+    const rh = m.remainingTime.hours;
+    const rm = m.remainingTime.minutes;
+    const resetText = `${rh}h ${rm}m`;
+
+    // Weekly text
+    let weeklyCell;
+    if (m.weeklyUnlimited) {
+      weeklyCell = '♾️';
+    } else {
+      weeklyCell = `${formatNum(m.weeklyUsed)}/${formatNum(m.weeklyTotal)}`;
     }
+
+    // Shorten display name for table readability
+    let displayName = m.name;
+    if (displayName.includes('Hailuo-2.3-Fast-6s-768p')) displayName = 'Hailuo-Fast';
+    else if (displayName.includes('Hailuo-2.3-6s-768p')) displayName = 'Hailuo-2.3';
+
+    content += `<tr>`;
+    content += `<td align="left" ${tdStyle}><strong>${displayName}</strong></td>`;
+    content += `<td align="right" ${tdStyle}>${formatNum(used)}/${formatNum(total)}</td>`;
+    content += `<td align="right" ${tdStyle}>${pctSpan(pct)}</td>`;
+    content += `<td align="right" ${tdStyle}>${weeklyCell}</td>`;
+    content += `<td align="right" ${tdStyle}>${resetText}</td>`;
+    content += `</tr>\n`;
   }
 
-  // Token Usage Stats section
+  content += `</table>\n\n`;
+  content += `---\n\n`;
+
+  // ── Token Usage Stats (compact single-line in footer) ───────────
   if (usageStats && (usageStats.lastDayUsage > 0 || usageStats.weeklyUsage > 0 || usageStats.planTotalUsage > 0)) {
-    mdContent += `\n**[ ${language === 'en-US' ? 'Token Usage Stats' : 'Token 消耗统计'} ]**\n`;
-    mdContent += `- ${language === 'en-US' ? 'Yesterday' : '昨日'}: ${formatNum(usageStats.lastDayUsage)}\n`;
-    mdContent += `- ${language === 'en-US' ? 'Last 7 days' : '近7天'}: ${formatNum(usageStats.weeklyUsage)}\n`;
-    mdContent += `- ${language === 'en-US' ? 'This month' : '当月'}: ${formatNum(usageStats.planTotalUsage)}\n`;
+    const lblYesterday = isEn ? 'Yesterday' : '昨日';
+    const lbl7d = isEn ? '7d' : '近7天';
+    const lblMonth = isEn ? 'Month' : '当月';
+    content += `<div align="right">Token：${lblYesterday} ${formatNum(usageStats.lastDayUsage)} · ${lbl7d} ${formatNum(usageStats.weeklyUsage)} · ${lblMonth} ${formatNum(usageStats.planTotalUsage)}</div>\n\n`;
   }
 
-  // Footer
-  mdContent += `\n`;
-  const expiryText = expiry ? `${language === 'en-US' ? 'Expiry' : '到期'}: ${expiry.text}` : '';
-  mdContent += `${expiryText} · ${t.clickToRefresh}`;
+  // ── Footer (right-aligned) ───────────────────────────────────────
+  const expiryText = expiry
+    ? `${isEn ? 'Expiry' : '到期'}：${isEn ? translateExpiryText(expiry.text) : expiry.text}`
+    : '';
+  content += `<div align="right">${expiryText} · ${t.clickToRefresh}</div>`;
 
-  md.appendMarkdown(mdContent);
+  md.appendMarkdown(content);
   statusBarItem.tooltip = md;
 }
 
