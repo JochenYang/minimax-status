@@ -1083,7 +1083,9 @@ function updateStatusBar(statusBarItem, api, data, apiData, usageStats, overseas
   let periodText = '';
   const fmt = (ts) => {
     if (!ts) return '';
-    const d = new Date(ts);
+    // API 返回的时间戳可能是秒级或毫秒级，统一处理
+    const ms = ts < 1e12 ? ts * 1000 : ts;
+    const d = new Date(ms);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   };
   if (apiData.model_remains && apiData.model_remains.length > 0) {

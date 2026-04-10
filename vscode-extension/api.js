@@ -336,9 +336,9 @@ class MinimaxAPI {
             minutes,
             text: hours > 0 ? `${hours} 小时 ${minutes} 分钟后重置` : `${minutes} 分钟后重置`,
           },
-          // Time window
-          startTime: m.start_time,
-          endTime: m.end_time,
+          // Time window (统一使用 Date 对象，避免时区问题)
+          startTime: new Date(m.start_time),
+          endTime: new Date(m.end_time),
           // Weekly quota
           weeklyTotal,
           weeklyRemainingCount,
@@ -385,8 +385,8 @@ class MinimaxAPI {
       // Weekly data
       weeklyTotal: m.current_weekly_total_count,
       weeklyUsage: m.current_weekly_usage_count,
-      weeklyStartTime: m.weekly_start_time,
-      weeklyEndTime: m.weekly_end_time,
+      weeklyStartTime: new Date(m.weekly_start_time),
+      weeklyEndTime: new Date(m.weekly_end_time),
       weeklyRemainsTime: m.weekly_remains_time,
     }));
 
