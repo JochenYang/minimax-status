@@ -37,7 +37,7 @@ class MinimaxAPI {
 
     try {
       const response = await axios.get(
-        `https://www.minimaxi.com/v1/api/openplatform/coding_plan/remains`,
+        `https://www.minimaxi.com/v1/token_plan/remains`,
         {
           headers: {
             Authorization: `Bearer ${this.token}`,
@@ -63,7 +63,7 @@ class MinimaxAPI {
 
     try {
       const response = await axios.get(
-        `https://www.minimax.io/v1/api/openplatform/coding_plan/remains`,
+        `https://www.minimax.io/v1/token_plan/remains`,
         {
           params: { GroupId: this.overseasGroupId },
           headers: {
@@ -278,20 +278,20 @@ class MinimaxAPI {
       })
       .map(m => {
         const totalCount = m.current_interval_total_count;
-        // usage_count 实际上是剩余次数，不是已使用
-        const remainingCount = m.current_interval_usage_count;
-        // percentage = 剩余 / 总量
-        const percentage = totalCount > 0 ? Math.round((remainingCount / totalCount) * 100) : 0;
+        // 新接口 usage_count 是已使用次数（正确值）
+        const usedCount = m.current_interval_usage_count;
+        // percentage = 已使用 / 总量
+        const percentage = totalCount > 0 ? Math.round((usedCount / totalCount) * 100) : 0;
 
         // Calculate remaining time
         const remainingMs = m.remains_time || 0;
         const hours = Math.floor(remainingMs / (1000 * 60 * 60));
         const minutes = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
 
-        // Weekly data - weekly_usage_count 也是剩余次数
+        // Weekly data - 新接口 weekly_usage_count 是已使用次数
         const weeklyTotal = m.current_weekly_total_count || 0;
-        const weeklyRemainingCount = m.current_weekly_usage_count || 0;
-        const weeklyPercentage = weeklyTotal > 0 ? Math.round((weeklyRemainingCount / weeklyTotal) * 100) : 0;
+        const weeklyUsed = m.current_weekly_usage_count || 0;
+        const weeklyPercentage = weeklyTotal > 0 ? Math.round((weeklyUsed / weeklyTotal) * 100) : 0;
         const weeklyRemainingMs = m.weekly_remains_time || 0;
         const weeklyDays = Math.floor(weeklyRemainingMs / (1000 * 60 * 60 * 24));
         const weeklyHours = Math.floor((weeklyRemainingMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -301,8 +301,8 @@ class MinimaxAPI {
         const isTextModel = modelName.includes('MiniMax-M');
         const isTTSModel = modelName.includes('speech');
 
-        // Status: remainingCount > 0 表示还有剩余，<= 0 表示已用完或超限
-        const isExhausted = remainingCount <= 0;
+        // Status: usedCount >= totalCount 表示已用完
+        const isExhausted = usedCount >= totalCount;
         const isOverLimit = false; // 剩余次数不会超限
         const weeklyUnlimited = weeklyTotal === 0;
 
@@ -328,8 +328,8 @@ class MinimaxAPI {
           isSmallQuotaModel,
           // Current interval (5h window for text, daily for others)
           totalCount,
-          remainingCount,
-          usedCount: totalCount - remainingCount, // 反推已使用
+          usedCount,
+          remainingCount: totalCount - usedCount, // 剩余 = 总量 - 已使用
           percentage,
           remainingTime: {
             hours,
@@ -341,8 +341,8 @@ class MinimaxAPI {
           endTime: new Date(m.end_time),
           // Weekly quota
           weeklyTotal,
-          weeklyRemainingCount,
-          weeklyUsed: weeklyTotal - weeklyRemainingCount, // 反推已使用
+          weeklyUsed,
+          weeklyRemainingCount: weeklyTotal - weeklyUsed, // 剩余 = 总量 - 已使用
           weeklyPercentage,
           weeklyRemainingTime: {
             days: weeklyDays,
@@ -379,12 +379,12 @@ class MinimaxAPI {
       name: m.model_name,
       startTime: new Date(m.start_time),
       endTime: new Date(m.end_time),
-      usage: m.current_interval_total_count - m.current_interval_usage_count,
+      usage: m.current_interval_usage_count, // 新接口直接是已使用次数
       total: m.current_interval_total_count,
       remainingMs: m.remains_time,
       // Weekly data
       weeklyTotal: m.current_weekly_total_count,
-      weeklyUsage: m.current_weekly_usage_count,
+      weeklyUsage: m.current_weekly_usage_count, // 新接口直接是已使用次数
       weeklyStartTime: new Date(m.weekly_start_time),
       weeklyEndTime: new Date(m.weekly_end_time),
       weeklyRemainsTime: m.weekly_remains_time,
@@ -408,10 +408,8 @@ class MinimaxAPI {
     const startTime = new Date(modelData.start_time);
     const endTime = new Date(modelData.end_time);
 
-    // Calculate used percentage based on usage count
-    const used =
-      modelData.current_interval_total_count -
-      modelData.current_interval_usage_count;
+    // Calculate used percentage based on usage count (新接口 usage_count 是已使用次数)
+    const used = modelData.current_interval_usage_count;
     const total = modelData.current_interval_total_count;
     const usedPercentage = Math.round((used / total) * 100);
 
@@ -420,8 +418,8 @@ class MinimaxAPI {
     const hours = Math.floor(remainingMs / (1000 * 60 * 60));
     const minutes = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
 
-    // Calculate weekly usage data
-    const weeklyUsed = modelData.current_weekly_total_count - modelData.current_weekly_usage_count;
+    // Calculate weekly usage data (新接口 weekly_usage_count 是已使用次数)
+    const weeklyUsed = modelData.current_weekly_usage_count;
     const weeklyTotal = modelData.current_weekly_total_count;
     const weeklyPercentage = weeklyTotal > 0 ? Math.floor((weeklyUsed / weeklyTotal) * 100) : 0;
     const weeklyUnlimited = weeklyTotal === 0;

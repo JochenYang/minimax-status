@@ -307,6 +307,7 @@ function activate(context) {
 }
 
 // Create help webview
+// eslint-disable-next-line no-unused-vars
 async function showHelpWebView(context) {
   const config = vscode.workspace.getConfiguration("minimaxStatus");
   const language = config.get("language") || "zh-CN";
@@ -811,7 +812,7 @@ async function showSettingsWebView(context, api, updateStatus) {
   panel.webview.onDidReceiveMessage(
     (message) => {
       switch (message.command) {
-        case "saveSettings":
+        case "saveSettings": {
           // Update VSCode settings
           const config = vscode.workspace.getConfiguration("minimaxStatus");
 
@@ -867,6 +868,7 @@ async function showSettingsWebView(context, api, updateStatus) {
           const successMsg = currentLanguage === 'en-US' ? 'Settings saved!' : '配置保存成功！';
           vscode.window.showInformationMessage(successMsg);
           break;
+        }
 
         case "cancelSettings":
           panel.dispose();
@@ -881,14 +883,16 @@ async function showSettingsWebView(context, api, updateStatus) {
 }
 
 // Helper function to generate progress bar (VSCode tooltip compatible)
-function formatProgressBar(percentage, width = 20) {
+// eslint-disable-next-line no-unused-vars
+function _formatProgressBar(percentage, width = 20) {
   const filled = Math.round((percentage / 100) * width);
   const empty = width - filled;
   return '[' + '\u2588'.repeat(filled) + '\u2591'.repeat(empty) + ']';
 }
 
 // Helper function to get progress color based on percentage
-function getProgressColor(percentage) {
+// eslint-disable-next-line no-unused-vars
+function _getProgressColor(percentage) {
   if (percentage < 60) {
     return new vscode.ThemeColor("charts.green");
   } else if (percentage < 85) {
@@ -899,7 +903,8 @@ function getProgressColor(percentage) {
 }
 
 // Helper to get model category color (for tooltip display)
-function getModelBarColor(model) {
+// eslint-disable-next-line no-unused-vars
+function _getModelBarColor(model) {
   if (model.isTextModel) {
     return '#4A90E2'; // Blue for text model
   } else if (model.name.includes('music')) {
@@ -910,6 +915,7 @@ function getModelBarColor(model) {
   return '#4A90E2'; // Default blue
 }
 
+// eslint-disable-next-line no-unused-vars
 function updateStatusBar(statusBarItem, api, data, apiData, usageStats, overseasData = null, overseasApiData = null, displayMode = 'none', language = 'zh-CN') {
   // Status bar i18n
   const statusI18n = {
@@ -960,7 +966,8 @@ function updateStatusBar(statusBarItem, api, data, apiData, usageStats, overseas
   const t = statusI18n[language] || statusI18n["zh-CN"];
 
   // Helper to translate remaining time text
-  const translateRemainingText = (text) => {
+  // eslint-disable-next-line no-unused-vars
+  const _translateRemainingText = (text) => {
     if (language === 'en-US') {
       return text
         .replace(/小时/, 'h')
@@ -982,7 +989,8 @@ function updateStatusBar(statusBarItem, api, data, apiData, usageStats, overseas
   };
 
   // Helper to format number with units
-  const formatNumberI18n = (num) => {
+  // eslint-disable-next-line no-unused-vars
+  const _formatNumberI18n = (num) => {
     // Chinese format uses 万/亿 for readability
     if (language === 'zh-CN') {
       if (num >= 100000000) {
@@ -1019,6 +1027,7 @@ function updateStatusBar(statusBarItem, api, data, apiData, usageStats, overseas
     displayData = data;
   }
 
+  // eslint-disable-next-line no-unused-vars
   const { usage, modelName, remaining, expiry, planTimeWindow } = displayData;
 
   // Set status bar text with color
