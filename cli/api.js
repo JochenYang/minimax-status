@@ -80,7 +80,7 @@ class MinimaxAPI {
 
     try {
       const response = await axios.get(
-        `https://www.minimaxi.com/v1/api/openplatform/coding_plan/remains`,
+        `https://www.minimaxi.com/v1/token_plan/remains`,
         {
           headers: {
             Authorization: `Bearer ${this.token}`,
@@ -295,9 +295,9 @@ class MinimaxAPI {
     const endTime = new Date(modelData.end_time);
 
     // Calculate counts
-    // 注意：current_interval_usage_count 实际是剩余次数，不是已用次数
-    const remainingCount = modelData.current_interval_usage_count;
-    const usedCount = modelData.current_interval_total_count - remainingCount;
+    // 新接口 usage_count 是已使用次数（正确值）
+    const usedCount = modelData.current_interval_usage_count;
+    const remainingCount = modelData.current_interval_total_count - usedCount;
 
     // Calculate percentage - 基于已使用次数的百分比
     const usedPercentage = Math.round(
@@ -310,7 +310,7 @@ class MinimaxAPI {
     const minutes = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
 
     // Calculate weekly usage data
-    const weeklyUsed = modelData.current_weekly_total_count - modelData.current_weekly_usage_count;
+    const weeklyUsed = modelData.current_weekly_usage_count;
     const weeklyTotal = modelData.current_weekly_total_count;
     const weeklyPercentage = weeklyTotal > 0 ? Math.floor((weeklyUsed / weeklyTotal) * 100) : 0;
     const weeklyRemainingMs = modelData.weekly_remains_time;
@@ -382,8 +382,8 @@ class MinimaxAPI {
             : `${minutes} 分钟后重置`,
       },
       usage: {
-        used: usedCount, // 修复：显示已使用次数，不是剩余次数
-        remaining: remainingCount, // 新增：剩余次数
+        used: usedCount,
+        remaining: remainingCount,
         total: modelData.current_interval_total_count,
         percentage: usedPercentage,
       },
@@ -415,13 +415,15 @@ class MinimaxAPI {
 
     return apiData.model_remains.map(modelData => {
       const totalCount = modelData.current_interval_total_count;
-      const remainingCount = modelData.current_interval_usage_count;
-      const usedCount = totalCount - remainingCount;
+      // 新接口 usage_count 是已使用次数（正确值）
+      const usedCount = modelData.current_interval_usage_count;
+      const remainingCount = totalCount - usedCount;
       const usedPercentage = totalCount > 0 ? Math.round((usedCount / totalCount) * 100) : 0;
 
       // Weekly data
       const weeklyTotal = modelData.current_weekly_total_count || 0;
-      const weeklyUsed = weeklyTotal > 0 ? (modelData.current_weekly_total_count - modelData.current_weekly_usage_count) : 0;
+      const weeklyUsed = modelData.current_weekly_usage_count || 0;
+      const weeklyRemainingCount = weeklyTotal - weeklyUsed;
       const weeklyPercentage = weeklyTotal > 0 ? Math.floor((weeklyUsed / weeklyTotal) * 100) : 0;
 
       return {
@@ -433,7 +435,7 @@ class MinimaxAPI {
         unlimited: weeklyTotal === 0,
         weeklyPercentage,
         weeklyTotal,
-        weeklyRemainingCount: modelData.current_weekly_usage_count || 0,
+        weeklyRemainingCount,
       };
     });
   }
