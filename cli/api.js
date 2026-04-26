@@ -3,6 +3,7 @@ const https = require("https");
 const fs = require("fs");
 const path = require("path");
 const chalk = require("chalk").default;
+const { getContextWindowSize, getDefaultContextWindowSize } = require('./model-context-sizes');
 
 // 创建 HTTPS Agent 配置
 const httpsAgent = new https.Agent({
@@ -346,10 +347,11 @@ class MinimaxAPI {
     }
 
     // 上下文窗口信息
-    // 默认上下文窗口大小 (200K tokens)
-    const defaultContextSize = 200000;
+    // 根据模型名称获取上下文窗口大小，回退到默认值
+    const contextWindowSize =
+      getContextWindowSize(modelData.model_name) || getDefaultContextWindowSize();
     const contextWindow = {
-      total: defaultContextSize,
+      total: contextWindowSize,
       used: 0,
       percentage: 0,
       totalFormatted: "200K",

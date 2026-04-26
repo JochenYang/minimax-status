@@ -12,6 +12,7 @@ const TranscriptParser = require("./transcript-parser");
 const ConfigCounter = require("./config-counter");
 const Renderer = require("./renderer");
 const packageJson = require("../package.json");
+const { getContextWindowSize, getDefaultContextWindowSize } = require('./model-context-sizes');
 
 const program = new Command();
 const api = new MinimaxAPI();
@@ -238,7 +239,7 @@ program
       let displayModel = modelName;
       let currentDir = null;
       let modelId = null;
-      let contextSize = 204800;
+      let contextSize = getContextWindowSize(modelName) || getDefaultContextWindowSize();
 
       if (stdinData) {
         if (stdinData.model && stdinData.model.display_name) {
@@ -257,8 +258,8 @@ program
       }
 
       if (modelId) {
-        // MiniMax 模型统一使用 208K context window
-        contextSize = 204800;
+        // MiniMax 模型使用映射表获取 context window
+        contextSize = getContextWindowSize(modelId) || getContextWindowSize(modelName) || getDefaultContextWindowSize();
       }
 
       let contextUsageTokens = null;
@@ -601,7 +602,7 @@ program
     // 计算上下文使用量（从 session 实时 token）
     // 使用实时 contextTokens 计算百分比
     const contextUsageValue = contextTokens;
-    const contextSizeValue = 204800; // MiniMax M2 context window
+    const contextSizeValue = getContextWindowSize(modelName) || getDefaultContextWindowSize();
 
     // 获取 Droid 全局配置统计（不是当前工作目录）
     const droidConfigDir = path.join(process.env.HOME || process.env.USERPROFILE, ".factory");
