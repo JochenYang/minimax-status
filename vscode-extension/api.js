@@ -26,7 +26,6 @@ class MinimaxAPI {
     this.selectedModelName = config.get("modelName");
     // Load overseas configuration
     this.overseasToken = config.get("overseasToken");
-    this.overseasGroupId = config.get("overseasGroupId");
     this.overseasDisplay = config.get("overseasDisplay") || "none";
   }
 
@@ -57,15 +56,14 @@ class MinimaxAPI {
   }
 
   async getOverseasUsageStatus() {
-    if (!this.overseasToken || !this.overseasGroupId) {
-      throw new Error("请在设置中配置海外 API Key 和 Group ID");
+    if (!this.overseasToken) {
+      throw new Error("请在设置中配置海外 API Key");
     }
 
     try {
       const response = await axios.get(
         `https://www.minimax.io/v1/token_plan/remains`,
         {
-          params: { GroupId: this.overseasGroupId },
           headers: {
             Authorization: `Bearer ${this.overseasToken}`,
             Accept: "application/json",

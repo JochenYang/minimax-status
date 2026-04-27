@@ -139,11 +139,14 @@ function activate(context) {
     statusBarItem.show();
 
     let intervalId;
+    let isUpdating = false;
     let billingCache = null;
     let billingCacheTime = 0;
     const BILLING_CACHE_DURATION = 30000; // 30 seconds cache for billing data
 
     const updateStatus = async () => {
+      if (isUpdating) return;
+      isUpdating = true;
       let language = "zh-CN";
       try {
         // Refresh API config to get latest settings
@@ -207,6 +210,8 @@ function activate(context) {
         statusBarItem.text = "$(warning) MiniMax";
         statusBarItem.tooltip = `${errorText}: ${error.message}\n${clickConfig}`;
         statusBarItem.color = new vscode.ThemeColor("errorForeground");
+      } finally {
+        isUpdating = false;
       }
     };
 
@@ -264,7 +269,8 @@ function activate(context) {
       refreshDisposable,
       setupDisposable,
       helpDisposable,
-      treeView
+      treeView,
+      new vscode.Disposable(() => clearInterval(intervalId))
     );
 
     // Always show status bar item
@@ -329,6 +335,8 @@ async function showHelpWebView(context) {
       step1Content: "国内版：套餐管理 -> Token-Plan\n海外版：Subscribe -> Token-Plan\n\n点击「创建新的 API Key」",
       step2Title: "第二步：配置插件",
       step2Content: "1. 点击左侧边栏的 MiniMax 图标\n2. 点击「插件设置」按钮\n3. 填写 API Key\n4. 点击保存",
+      step3Title: "第三步：配置海外账号（可选）",
+      step3Content: "如果你有海外账号（platform.minimax.io）：\n1. 在设置页的「海外账号」卡片填写海外 API Key\n2. 在「海外用量」中选择显示模式\n\n纯海外用户可将国内 API Key 留空",
       step4Title: "使用说明",
       step4Content: "• 状态栏显示当前使用进度\n• 点击状态栏可刷新数据\n• 支持国内/海外账号切换",
     },
@@ -338,6 +346,8 @@ async function showHelpWebView(context) {
       step1Content: "Domestic: Subscription -> Token-Plan\nOverseas: Subscribe -> Token-Plan\n\nClick 'Create new API Key'",
       step2Title: "Step 2: Configure Plugin",
       step2Content: "1. Click MiniMax icon in sidebar\n2. Click Settings\n3. Enter API Key\n4. Click Save",
+      step3Title: "Step 3: Configure Overseas (Optional)",
+      step3Content: "If you have an overseas account (platform.minimax.io):\n1. Fill in Overseas API Key in the \"Overseas Account\" card\n2. Choose display mode in \"Overseas Usage\" section\n\nOverseas-only users can leave domestic API Key empty",
       step4Title: "Usage",
       step4Content: "• Status bar shows usage progress\n• Click status bar to refresh\n• Support domestic/overseas accounts",
     }
@@ -412,8 +422,8 @@ async function showHelpWebView(context) {
             </div>
 
             <div class="step">
-                <h2>${t.step3Title || t.step4Title}</h2>
-                <p>${t.step3Content || t.step4Content}</p>
+                <h2>${t.step3Title}</h2>
+                <p>${t.step3Content}</p>
             </div>
         </div>
     </body>
@@ -456,9 +466,6 @@ async function showSettingsWebView(context, api, updateStatus) {
       apiKeyInfo: "platform.minimaxi.com 的 API Key",
       overseasApiKeyPlaceholder: "请输入海外 API Key",
       overseasApiKeyInfo: "platform.minimax.io 的 API Key（用于显示海外用量）",
-      overseasGroupId: "GroupID",
-      overseasGroupIdPlaceholder: "请输入 groupID",
-      overseasGroupIdInfo: "海外账号的 GroupID",
       displayTitle: "显示设置",
       refreshInterval: "刷新间隔（秒）",
       refreshIntervalInfo: "自动刷新间隔，建议 10-30 秒",
@@ -502,7 +509,6 @@ async function showSettingsWebView(context, api, updateStatus) {
       cancel: "Cancel",
       apiKeyError: "API Key is required",
       overseasApiKeyError: "Overseas API Key is required",
-      overseasGroupIdError: "Overseas GroupID is required",
       invalidInterval: "Refresh interval must be between 5-300 seconds",
       modelAuto: "Auto select first model",
       modelEmpty: "Please configure API Key first",
@@ -591,6 +597,7 @@ async function showSettingsWebView(context, api, updateStatus) {
                 font-size: 13px;
             }
             input[type="text"],
+            input[type="password"],
             input[type="number"],
             select {
                 padding: 12px 16px;
@@ -668,7 +675,7 @@ async function showSettingsWebView(context, api, updateStatus) {
                 <h2>${t.domesticTitle}</h2>
                 <div class="form-group">
                     <label for="token">${t.apiKey}</label>
-                    <input type="text" id="token" placeholder="${t.apiKeyPlaceholder}" value="${currentToken}">
+                    <input type="password" id="token" placeholder="${t.apiKeyPlaceholder}" value="${currentToken}">
                     <div class="info-text">${t.apiKeyInfo}</div>
                     <div class="error" id="token-error"></div>
                 </div>
@@ -679,7 +686,7 @@ async function showSettingsWebView(context, api, updateStatus) {
                 <h2>${t.overseasTitle}</h2>
                 <div class="form-group">
                     <label for="overseasToken">${t.apiKey}</label>
-                    <input type="text" id="overseasToken" placeholder="${t.overseasApiKeyPlaceholder}" value="${currentOverseasToken}">
+                    <input type="password" id="overseasToken" placeholder="${t.overseasApiKeyPlaceholder}" value="${currentOverseasToken}">
                     <div class="info-text">${t.overseasApiKeyInfo}</div>
                     <div class="error" id="overseasToken-error"></div>
                 </div>
@@ -755,7 +762,8 @@ async function showSettingsWebView(context, api, updateStatus) {
                 // Validate inputs
                 let hasError = false;
 
-                if (!token) {
+                // 仅在非纯海外模式下要求国内 Token
+                if (overseasDisplay !== 'overseas' && !token) {
                     document.getElementById('token-error').textContent = t.apiKeyError;
                     hasError = true;
                 }
@@ -1054,7 +1062,7 @@ function updateStatusBar(statusBarItem, api, data, apiData, usageStats, overseas
     let weeklyText = '';
     if (data.weekly) {
       if (data.weekly.unlimited) {
-        weeklyText = ` · ${weeklyLabel} ♾️`;
+        weeklyText = ` · ${weeklyLabel} ∞`;
       } else {
         weeklyText = ` · ${weeklyLabel} ${data.weekly.percentage}%`;
       }
@@ -1084,7 +1092,7 @@ function updateStatusBar(statusBarItem, api, data, apiData, usageStats, overseas
 
   // Helper: colored percentage span
   const pctSpan = (pct) => {
-    const color = pct < 60 ? '#4ec9b0' : pct < 85 ? '#dcdcaa' : '#f44747';
+    const color = pct < 60 ? 'var(--vscode-charts-green)' : pct < 85 ? 'var(--vscode-charts-yellow)' : 'var(--vscode-errorForeground)';
     return `<span style="color:${color}"><strong>${pct}%</strong></span>`;
   };
 
@@ -1188,7 +1196,7 @@ function updateStatusBar(statusBarItem, api, data, apiData, usageStats, overseas
     const resetText = `${rh}h ${rm}m`;
 
     const weeklyCell = m.weeklyUnlimited
-      ? '♾️'
+      ? '∞'
       : `${formatNum(m.weeklyUsed)}/${formatNum(m.weeklyTotal)}`;
 
     let displayName = m.name;
