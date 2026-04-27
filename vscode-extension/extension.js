@@ -1089,27 +1089,40 @@ function updateStatusBar(statusBarItem, api, data, apiData, usageStats, overseas
   };
 
   // ── Period header (use weekly period from API, not the 5h interval) ──
+  // Use the user's local timezone so overseas users see intuitive dates.
+  // For end timestamps, subtract 1s so that an exclusive boundary like
+  // "next day 00:00:00" is displayed as the previous full day.
   let periodText = '';
-  const fmt = (ts) => {
+  const fmt = (ts, isEnd = false) => {
     if (!ts) return '';
-    // API 返回的时间戳可能是秒级或毫秒级，统一处理
-    const ms = ts < 1e12 ? ts * 1000 : ts;
-    const d = new Date(ms);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    let ms = ts < 1e12 ? ts * 1000 : ts;
+    if (isEnd) ms -= 1000;
+    return new Intl.DateTimeFormat('en-CA', {
+      year: 'numeric', month: '2-digit', day: '2-digit',
+    }).format(new Date(ms));
   };
   if (apiData.model_remains && apiData.model_remains.length > 0) {
     const firstModel = apiData.model_remains[0];
-    periodText = `${fmt(firstModel.weekly_start_time)} — ${fmt(firstModel.weekly_end_time)}`;
+    periodText = `${fmt(firstModel.weekly_start_time)} — ${fmt(firstModel.weekly_end_time, true)}`;
   } else if (planTimeWindow) {
-    periodText = `${fmt(planTimeWindow.start)} — ${fmt(planTimeWindow.end)}`;
+    periodText = `${fmt(planTimeWindow.start)} — ${fmt(planTimeWindow.end, true)}`;
   }
 
   let content = '';
-  content += `**MINIMAX** &ensp; ${isEn ? 'Quota Panel' : '配额面板'}`;
-  content += ` &emsp; ${isEn ? 'Period' : '周期'}：**${periodText}**\n\n`;
+  // Header: title left, period right (full-width table for proper alignment).
+  // Markdown bold (**) is NOT parsed inside <td>, so use plain text and <strong>.
+  const titleText = `MINIMAX · ${isEn ? 'Quota Panel' : '配额面板'}`;
+  const periodLabel = isEn ? 'Period' : '周期';
+  content += `<table width="100%" cellspacing="0" cellpadding="0"><tr>`;
+  content += `<td align="left">${titleText}</td>`;
+  content += `<td align="right">${periodLabel}：${periodText}</td>`;
+  content += `</tr></table>\n\n`;
   content += `---\n\n`;
 
-  // ── Model table (HTML for full-width control) ────────────────────
+  // ── Model table (single-row per model, 5 columns) ──────────────
+  // Group headers act as natural section dividers — no spacer rows
+  // (VS Code tooltip strips padding/height styles, so bold group titles
+  // are the cleanest way to separate categories without wasted vertical space).
   const models = allModelsData.models || [];
   const colModel = isEn ? 'Model' : '模型';
   const colUsage = isEn ? 'Usage' : '用量';
@@ -1117,37 +1130,67 @@ function updateStatusBar(statusBarItem, api, data, apiData, usageStats, overseas
   const colWeek  = isEn ? 'Weekly' : '每周';
   const colReset = isEn ? 'Reset' : '重置';
 
-  // Use HTML table with width=100% so columns spread across full tooltip width
   const thStyle = 'style="padding:2px 6px;font-weight:normal;opacity:0.7"';
   const tdStyle = 'style="padding:2px 6px"';
+  const groupStyle = 'style="padding:2px 6px;font-weight:bold"';
+
+  // Group meta: name + colored dot (geometric ●, never rendered as emoji)
+  const getGroupMeta = (model) => {
+    const name = model.name || '';
+    if (model.isTextModel) return { key: 'core', label: isEn ? 'Core' : '核心模型', color: '#dcdcaa' };
+    if (name.includes('coding-plan')) return { key: 'coding', label: 'Coding Plan', color: '#9cdcfe' };
+    if (
+      name.includes('speech') ||
+      name.includes('Hailuo') ||
+      name.includes('music') ||
+      name.includes('image') ||
+      name.includes('lyrics')
+    ) {
+      return { key: 'media', label: isEn ? 'Media' : '多媒体模型', color: '#4ec9b0' };
+    }
+    return { key: 'other', label: isEn ? 'Other' : '其他模型', color: '#888888' };
+  };
+
+  // HTML4 width attributes set per-column minimum width. CSS sizing is stripped
+  // by VS Code's sanitizer, but the legacy `width="N"` attribute on <th>/<td>
+  // survives and forces the table to expand, fixing tooltip width without
+  // hardcoding total width (table still uses 100% for adaptive growth).
   content += `<table width="100%" cellspacing="0" cellpadding="0">\n`;
   content += `<tr>`;
-  content += `<th align="left" ${thStyle}>${colModel}</th>`;
-  content += `<th align="right" ${thStyle}>${colUsage}</th>`;
-  content += `<th align="right" ${thStyle}>${colPct}</th>`;
-  content += `<th align="right" ${thStyle}>${colWeek}</th>`;
-  content += `<th align="right" ${thStyle}>${colReset}</th>`;
+  content += `<th width="140" align="left" ${thStyle}>${colModel}</th>`;
+  content += `<th width="75"  align="right" ${thStyle}>${colUsage}</th>`;
+  content += `<th width="45"  align="right" ${thStyle}>${colPct}</th>`;
+  content += `<th width="75"  align="right" ${thStyle}>${colWeek}</th>`;
+  content += `<th width="60"  align="right" ${thStyle}>${colReset}</th>`;
   content += `</tr>\n`;
 
+  let currentGroup = '';
   for (const m of models) {
+    const meta = getGroupMeta(m);
+    if (meta.key !== currentGroup) {
+      // Spacer row before non-first groups. VS Code strips CSS height/padding,
+      // but the HTML4 `height` attribute on <tr> sometimes survives the sanitizer
+      // and gives a ~6px gap (vs the ~20px of a full empty row).
+      if (currentGroup) {
+        content += `<tr height="6"><td colspan="5"></td></tr>\n`;
+      }
+      currentGroup = meta.key;
+      const dot = `<span style="color:${meta.color}">●</span>`;
+      content += `<tr><td colspan="5" ${groupStyle}>${dot} ${meta.label}</td></tr>\n`;
+    }
+
     const used = m.usedCount;
     const total = m.totalCount;
     const pct = total > 0 ? Math.round((used / total) * 100) : 0;
 
-    // Reset time
     const rh = m.remainingTime.hours;
     const rm = m.remainingTime.minutes;
     const resetText = `${rh}h ${rm}m`;
 
-    // Weekly text
-    let weeklyCell;
-    if (m.weeklyUnlimited) {
-      weeklyCell = '♾️';
-    } else {
-      weeklyCell = `${formatNum(m.weeklyUsed)}/${formatNum(m.weeklyTotal)}`;
-    }
+    const weeklyCell = m.weeklyUnlimited
+      ? '♾️'
+      : `${formatNum(m.weeklyUsed)}/${formatNum(m.weeklyTotal)}`;
 
-    // Shorten display name for table readability
     let displayName = m.name;
     if (displayName.includes('Hailuo-2.3-Fast-6s-768p')) displayName = 'Hailuo-Fast';
     else if (displayName.includes('Hailuo-2.3-6s-768p')) displayName = 'Hailuo-2.3';
@@ -1164,19 +1207,40 @@ function updateStatusBar(statusBarItem, api, data, apiData, usageStats, overseas
   content += `</table>\n\n`;
   content += `---\n\n`;
 
-  // ── Token Usage Stats (compact single-line in footer) ───────────
+  // ── Bottom 3-column Token stats: 昨日 / 近7天 / 当月 (real data from billing API) ──
   if (usageStats && (usageStats.lastDayUsage > 0 || usageStats.weeklyUsage > 0 || usageStats.planTotalUsage > 0)) {
-    const lblYesterday = isEn ? 'Yesterday' : '昨日';
-    const lbl7d = isEn ? '7d' : '近7天';
-    const lblMonth = isEn ? 'Month' : '当月';
-    content += `<div align="right">Token：${lblYesterday} ${formatNum(usageStats.lastDayUsage)} · ${lbl7d} ${formatNum(usageStats.weeklyUsage)} · ${lblMonth} ${formatNum(usageStats.planTotalUsage)}</div>\n\n`;
+    const lblYesterday = isEn ? 'Yesterday' : '昨日消耗';
+    const lbl7d        = isEn ? 'Last 7 Days' : '近 7 天';
+    const lblMonth     = isEn ? 'This Month' : '当月消耗';
+    const unit         = 'tokens';
+
+    const cellLabel = 'style="padding:2px 6px;opacity:0.6"';
+    const cellValue = 'style="padding:2px 6px"';
+    content += `<table width="100%" cellspacing="0" cellpadding="0">\n`;
+    content += `<tr>`;
+    content += `<td align="center" ${cellLabel}>${lblYesterday}</td>`;
+    content += `<td align="center" ${cellLabel}>${lbl7d}</td>`;
+    content += `<td align="center" ${cellLabel}>${lblMonth}</td>`;
+    content += `</tr>\n<tr>`;
+    content += `<td align="center" ${cellValue}><strong>${formatNum(usageStats.lastDayUsage)}</strong> ${unit}</td>`;
+    content += `<td align="center" ${cellValue}><strong>${formatNum(usageStats.weeklyUsage)}</strong> ${unit}</td>`;
+    content += `<td align="center" ${cellValue}><strong>${formatNum(usageStats.planTotalUsage)}</strong> ${unit}</td>`;
+    content += `</tr>\n</table>\n\n`;
   }
 
-  // ── Footer (right-aligned) ───────────────────────────────────────
+  // ── Footer: expiry + updated time + refresh hint (right-aligned) ──
+  // Use the user's local timezone for the "updated at" timestamp.
+  const updatedAt = new Date().toLocaleTimeString(isEn ? 'en-US' : 'zh-CN', {
+    hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit',
+  });
+  const updatedLabel = isEn ? 'Updated' : '更新于';
   const expiryText = expiry
     ? `${isEn ? 'Expiry' : '到期'}：${isEn ? translateExpiryText(expiry.text) : expiry.text}`
     : '';
-  content += `<div align="right">${expiryText} · ${t.clickToRefresh}</div>`;
+  const footerLine = [expiryText, `${updatedLabel} ${updatedAt}`, t.clickToRefresh].filter(Boolean).join(' · ');
+  content += `<table width="100%" cellspacing="0" cellpadding="0"><tr>`;
+  content += `<td align="right" style="opacity:0.55">${footerLine}</td>`;
+  content += `</tr></table>`;
 
   md.appendMarkdown(content);
   statusBarItem.tooltip = md;
