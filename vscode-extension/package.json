@@ -2,7 +2,7 @@
   "name": "minimax-status-vscode",
   "displayName": "MiniMax Status",
   "description": "在 VS Code 状态栏显示 MiniMax Token-Plan 使用状态",
-  "version": "1.3.4",
+  "version": "1.4.0",
   "publisher": "JochenYang",
   "icon": "./public/icon.png",
   "engines": {
@@ -56,12 +56,6 @@
           "default": "",
           "description": "MiniMax 访问令牌",
           "order": 1
-        },
-        "minimaxStatus.groupId": {
-          "type": "string",
-          "default": "",
-          "description": "MiniMax group ID",
-          "order": 2
         },
         "minimaxStatus.refreshInterval": {
           "type": "number",

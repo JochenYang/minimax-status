@@ -15,14 +15,12 @@ class MinimaxAPI {
   constructor(context) {
     this.context = context;
     this.token = null;
-    this.groupId = null;
     this.loadConfig();
   }
 
   loadConfig() {
     const config = vscode.workspace.getConfiguration("minimaxStatus");
     this.token = config.get("token");
-    this.groupId = config.get("groupId");
     this.selectedModelName = config.get("modelName");
     // Load overseas configuration
     this.overseasToken = config.get("overseasToken");
@@ -36,10 +34,11 @@ class MinimaxAPI {
 
     try {
       const response = await axios.get(
-        `https://www.minimaxi.com/v1/token_plan/remains`,
+        `https://www.minimaxi.com/v1/api/openplatform/coding_plan/remains`,
         {
           headers: {
             Authorization: `Bearer ${this.token}`,
+            referer: "https://platform.minimaxi.com/",
             Accept: "application/json",
           },
           httpsAgent: httpsAgent, // Add HTTPS Agent configuration
@@ -50,6 +49,9 @@ class MinimaxAPI {
     } catch (error) {
       if (error.response?.status === 401) {
         throw new Error("无效的令牌或未授权。请检查您的凭据。");
+      }
+      if (error.response?.data?.base_resp?.status_code === 1004) {
+        throw new Error("登录已过期或凭据无效，请前往 platform.minimaxi.com 重新获取 Coding Plan API Key (sk-cp-...)。");
       }
       throw new Error(`API 请求失败: ${error.message}`);
     }
@@ -62,10 +64,11 @@ class MinimaxAPI {
 
     try {
       const response = await axios.get(
-        `https://www.minimax.io/v1/token_plan/remains`,
+        `https://www.minimax.io/v1/api/openplatform/coding_plan/remains`,
         {
           headers: {
             Authorization: `Bearer ${this.overseasToken}`,
+            referer: "https://platform.minimaxi.com/",
             Accept: "application/json",
           },
         }
@@ -269,27 +272,41 @@ class MinimaxAPI {
     // Parse all models and filter unsupported ones
     const allModels = apiData.model_remains
       .filter(m => {
-        // Filter out unsupported models: both total counts are 0
-        const totalCount = m.current_interval_total_count || 0;
-        const weeklyTotal = m.current_weekly_total_count || 0;
-        return !(totalCount === 0 && weeklyTotal === 0);
+        // ⚠ 修复：只过滤真正无可用信息的模型（remaining_percent 都没有）。
+        // 旧逻辑过滤 total=0 && weekly=0，但主人账号的 `general` 模型
+        // total=0 但 remaining_percent=93（5h 6% 已用）—— 是有意义的。
+        const remainingPct = m.current_interval_remaining_percent;
+        const weeklyRemainingPct = m.current_weekly_remaining_percent;
+        if (remainingPct == null && weeklyRemainingPct == null) return false;
+        // 过滤 status != 1 的（已废弃/不可用）
+        const intervalStatus = m.current_interval_status;
+        const weeklyStatus = m.current_weekly_status;
+        if (intervalStatus !== undefined && intervalStatus !== 1 && weeklyStatus !== undefined && weeklyStatus !== 1) return false;
+        return true;
       })
       .map(m => {
         const totalCount = m.current_interval_total_count;
-        // 新接口 usage_count 是已使用次数（正确值）
         const usedCount = m.current_interval_usage_count;
-        // percentage = 已使用 / 总量
-        const percentage = totalCount > 0 ? Math.round((usedCount / totalCount) * 100) : 0;
+        // ⚠ 字段语义陷阱：current_interval_remaining_percent 实际是"已用%"
+        // 验证：general 6% 已用 → remaining_percent=92；video 0/3 已用 → 100(全用完但未到100%重置期)
+        // 优先用 remaining_percent 反转，usage_count 仅作参考
+        const remainingPct = m.current_interval_remaining_percent;
+        const percentage = remainingPct !== undefined && remainingPct !== null
+          ? Math.round(100 - remainingPct)
+          : (totalCount > 0 ? Math.round((usedCount / totalCount) * 100) : 0);
 
         // Calculate remaining time
         const remainingMs = m.remains_time || 0;
         const hours = Math.floor(remainingMs / (1000 * 60 * 60));
         const minutes = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
 
-        // Weekly data - 新接口 weekly_usage_count 是已使用次数
+        // Weekly data - 同样用 remaining_percent 反转
         const weeklyTotal = m.current_weekly_total_count || 0;
         const weeklyUsed = m.current_weekly_usage_count || 0;
-        const weeklyPercentage = weeklyTotal > 0 ? Math.round((weeklyUsed / weeklyTotal) * 100) : 0;
+        const weeklyRemainingPct = m.current_weekly_remaining_percent;
+        const weeklyPercentage = weeklyRemainingPct !== undefined && weeklyRemainingPct !== null
+          ? Math.round(100 - weeklyRemainingPct)
+          : (weeklyTotal > 0 ? Math.round((weeklyUsed / weeklyTotal) * 100) : 0);
         const weeklyRemainingMs = m.weekly_remains_time || 0;
         const weeklyDays = Math.floor(weeklyRemainingMs / (1000 * 60 * 60 * 24));
         const weeklyHours = Math.floor((weeklyRemainingMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -300,9 +317,12 @@ class MinimaxAPI {
         const isTTSModel = modelName.includes('speech');
 
         // Status: usedCount >= totalCount 表示已用完
-        const isExhausted = usedCount >= totalCount;
+        const isExhausted = totalCount > 0 && usedCount >= totalCount;
         const isOverLimit = false; // 剩余次数不会超限
-        const weeklyUnlimited = weeklyTotal === 0;
+        // ⚠ Bug fix: 旧逻辑 weeklyTotal === 0 判 unlimited，但主人账号的 `general`
+        // 模型 weekly_total=0、weekly_remaining_percent=97（3% 已用，有数据）。
+        // 真正的"无限"应当是 total=0 **且** remaining_percent 也没返回。
+        const weeklyUnlimited = weeklyTotal === 0 && (m.current_weekly_remaining_percent == null);
 
         // 小额度模型（日配额较小）：Hailuo、music、image
         // 这些模型日配额用完后第二天重置，周限额不需要显示
@@ -406,21 +426,29 @@ class MinimaxAPI {
     const startTime = new Date(modelData.start_time);
     const endTime = new Date(modelData.end_time);
 
-    // Calculate used percentage based on usage count (新接口 usage_count 是已使用次数)
+    // Calculate used percentage based on remaining_percent (新接口命名反向，92 表示已用 8%)
     const used = modelData.current_interval_usage_count;
     const total = modelData.current_interval_total_count;
-    const usedPercentage = Math.round((used / total) * 100);
+    const remainingPct = modelData.current_interval_remaining_percent;
+    const usedPercentage = remainingPct !== undefined && remainingPct !== null
+      ? Math.round(100 - remainingPct)
+      : Math.round((used / total) * 100);
 
     // Calculate remaining time
     const remainingMs = modelData.remains_time;
     const hours = Math.floor(remainingMs / (1000 * 60 * 60));
     const minutes = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
 
-    // Calculate weekly usage data (新接口 weekly_usage_count 是已使用次数)
+    // Calculate weekly usage data (同样用 remaining_percent 反转)
     const weeklyUsed = modelData.current_weekly_usage_count;
     const weeklyTotal = modelData.current_weekly_total_count;
-    const weeklyPercentage = weeklyTotal > 0 ? Math.floor((weeklyUsed / weeklyTotal) * 100) : 0;
-    const weeklyUnlimited = weeklyTotal === 0;
+    const weeklyRemainingPct = modelData.current_weekly_remaining_percent;
+    const weeklyPercentage = weeklyRemainingPct !== undefined && weeklyRemainingPct !== null
+      ? Math.floor(100 - weeklyRemainingPct)
+      : (weeklyTotal > 0 ? Math.floor((weeklyUsed / weeklyTotal) * 100) : 0);
+    // ⚠ Bug fix: see comment in parseAllModelsForTooltip — same field semantics
+    // trap: weekly_total=0 but remaining_percent=97 means quota IS limited.
+    const weeklyUnlimited = weeklyTotal === 0 && (modelData.current_weekly_remaining_percent == null);
     const weeklyRemainingMs = modelData.weekly_remains_time;
     const weeklyDays = Math.floor(weeklyRemainingMs / (1000 * 60 * 60 * 24));
     const weeklyHours = Math.floor((weeklyRemainingMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));

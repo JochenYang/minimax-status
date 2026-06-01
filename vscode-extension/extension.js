@@ -162,6 +162,8 @@ function activate(context) {
         ]);
         const usageData = api.parseUsageData(apiData, subscriptionData);
 
+        // (积分余额接口 cookie-only，vscode 端 Bearer 永远 401 — 已移除 getCreditsBalance)
+
         // Get overseas data if needed
         let overseasUsageData = null;
         let overseasApiData = null;
@@ -1056,7 +1058,7 @@ function updateStatusBar(statusBarItem, api, data, apiData, usageStats, overseas
     const overseasPercent = overseasData.usage.percentage;
     statusBarItem.text = `$(clock) ${t.domestic}${domesticPercent}% / ${t.overseas}${overseasPercent}%`;
   } else {
-    // 显示格式：剩余时间 百分比 · 周 百分比
+    // 显示格式：剩余时间 百分比 · 周 百分比 · $(gift) 积分 数字
     const remainingText = remaining.hours > 0 ? `${remaining.hours}h` : `${remaining.minutes}m`;
     const weeklyLabel = language === 'en-US' ? 'W' : '周';
     let weeklyText = '';
@@ -1088,12 +1090,6 @@ function updateStatusBar(statusBarItem, api, data, apiData, usageStats, overseas
     if (num >= 100000000) return (num / 100000000).toFixed(1).replace(/\.0$/, "") + "亿";
     if (num >= 10000) return (num / 10000).toFixed(1).replace(/\.0$/, "") + "万";
     return num.toLocaleString("zh-CN");
-  };
-
-  // Helper: colored percentage span
-  const pctSpan = (pct) => {
-    const color = pct < 60 ? 'var(--vscode-charts-green)' : pct < 85 ? 'var(--vscode-charts-yellow)' : 'var(--vscode-errorForeground)';
-    return `<span style="color:${color}"><strong>${pct}%</strong></span>`;
   };
 
   // ── Period header (use weekly period from API, not the 5h interval) ──
@@ -1132,88 +1128,116 @@ function updateStatusBar(statusBarItem, api, data, apiData, usageStats, overseas
   // (VS Code tooltip strips padding/height styles, so bold group titles
   // are the cleanest way to separate categories without wasted vertical space).
   const models = allModelsData.models || [];
-  const colModel = isEn ? 'Model' : '模型';
-  const colUsage = isEn ? 'Usage' : '用量';
-  const colPct   = isEn ? '%' : '占比';
-  const colWeek  = isEn ? 'Weekly' : '每周';
-  const colReset = isEn ? 'Reset' : '重置';
 
-  const thStyle = 'style="padding:2px 6px;font-weight:normal;opacity:0.7"';
-  const tdStyle = 'style="padding:2px 6px"';
-  const groupStyle = 'style="padding:2px 6px;font-weight:bold"';
+  // (Removed getGroupMeta / pctSpan / thStyle / tdStyle / groupStyle / colModel / colUsage / colPct / colWeek / colReset
+  //  — all dead code from the old "model table" rendering that was replaced by per-card layout.)
 
-  // Group meta: name + colored dot (geometric ●, never rendered as emoji)
-  const getGroupMeta = (model) => {
-    const name = model.name || '';
-    if (model.isTextModel) return { key: 'core', label: isEn ? 'Core' : '核心模型', color: '#dcdcaa' };
-    if (name.includes('coding-plan')) return { key: 'coding', label: 'Coding Plan', color: '#9cdcfe' };
-    if (
-      name.includes('speech') ||
-      name.includes('Hailuo') ||
-      name.includes('music') ||
-      name.includes('image') ||
-      name.includes('lyrics')
-    ) {
-      return { key: 'media', label: isEn ? 'Media' : '多媒体模型', color: '#4ec9b0' };
-    }
-    return { key: 'other', label: isEn ? 'Other' : '其他模型', color: '#888888' };
+  // ── Progress bar: U+25B0 (▰) / U+25B1 (▱) — these are "BLACK SQUARE" /
+  // "WHITE SQUARE" from the Geometric Shapes block (designed for fallback
+  // rendering in fonts that lack solid block glyphs). In Chinese fallback
+  // fonts (Microsoft YaHei) they render as dense / sparse diagonal stripes,
+  // which looks like a proper "diagonal-block" progress bar.
+  const BAR_W = 16;
+  const progressBar = (pct, color) => {
+    if (pct == null || isNaN(pct)) pct = 0;
+    const clamped = Math.max(0, Math.min(100, pct));
+    const filled = Math.round((clamped / 100) * BAR_W);
+    const empty = BAR_W - filled;
+    return `<span style="color:${color}">▰</span>`.repeat(filled) +
+           `<span style="opacity:0.3">▱</span>`.repeat(empty);
   };
 
-  // HTML4 width attributes set per-column minimum width. CSS sizing is stripped
-  // by VS Code's sanitizer, but the legacy `width="N"` attribute on <th>/<td>
-  // survives and forces the table to expand, fixing tooltip width without
-  // hardcoding total width (table still uses 100% for adaptive growth).
-  content += `<table width="100%" cellspacing="0" cellpadding="0">\n`;
-  content += `<tr>`;
-  content += `<th width="140" align="left" ${thStyle}>${colModel}</th>`;
-  content += `<th width="75"  align="right" ${thStyle}>${colUsage}</th>`;
-  content += `<th width="45"  align="right" ${thStyle}>${colPct}</th>`;
-  content += `<th width="75"  align="right" ${thStyle}>${colWeek}</th>`;
-  content += `<th width="60"  align="right" ${thStyle}>${colReset}</th>`;
-  content += `</tr>\n`;
+  // ── Render one "package card" (5h / 周 / video / Hailuo / etc.) ──
+  // Layout (2 rows):
+  //   Row 1:  ▍ title  ·  reset-time           (reset-time ON THE SAME LINE as title)
+  //   Row 2:  [▰▰▰▰▱▱▱▱]  X%  used/total       (percentage aligns with progress bar)
+  // used/total is hidden entirely when total=0 (e.g. 5h 限额 has no
+  // explicit total count from the API).
+  const renderCard = (label, pct, used, total, resetText, accent = '#9cdcfe') => {
+    const pctColor = pct < 60 ? '#3fb950' : pct < 85 ? '#d29922' : '#f85149';
+    const usedTotalSuffix = total > 0 ? ` <span style="opacity:0.6">${formatNum(used)}/${formatNum(total)}</span>` : '';
+    return `<table width="100%" cellspacing="0" cellpadding="0">` +
+      // Row 1: title + reset-time on the SAME line
+      `<tr><td align="left" style="padding:6px 6px 2px 6px"><span style="color:${accent}">▍</span> <strong>${label}</strong> <span style="opacity:0.5">·</span> <span style="opacity:0.7">${resetText}</span></td></tr>` +
+      // Row 2: progress bar + percentage + used/total
+      `<tr><td align="left" style="padding:0px 6px 6px 6px;font-family:Consolas,Menlo,monospace">${progressBar(pct, pctColor)}&nbsp;&nbsp;<span style="color:${pctColor}"><strong>${pct}%</strong></span>${usedTotalSuffix}</td></tr>` +
+      `</table>`;
+  };
 
-  let currentGroup = '';
-  for (const m of models) {
-    const meta = getGroupMeta(m);
-    if (meta.key !== currentGroup) {
-      // Spacer row before non-first groups. VS Code strips CSS height/padding,
-      // but the HTML4 `height` attribute on <tr> sometimes survives the sanitizer
-      // and gives a ~6px gap (vs the ~20px of a full empty row).
-      if (currentGroup) {
-        content += `<tr height="6"><td colspan="5"></td></tr>\n`;
-      }
-      currentGroup = meta.key;
-      const dot = `<span style="color:${meta.color}">●</span>`;
-      content += `<tr><td colspan="5" ${groupStyle}>${dot} ${meta.label}</td></tr>\n`;
+  // Find specific models by name pattern (for the "套餐" cards).
+  const findModel = (predicate) => models.find(predicate);
+  const generalModel = findModel(m => m.name === 'general');
+  const videoModel   = findModel(m => m.name === 'video');
+  const hailuoModels = models.filter(m => m.name.includes('Hailuo'));
+  const musicModels  = models.filter(m => m.name.includes('music') || m.name.includes('lyrics'));
+  const imageModels  = models.filter(m => m.name.includes('image'));
+  const speechModels = models.filter(m => m.name.includes('speech'));
+
+  // ── 套餐卡片 (5h 限额 / 周限额 / 视频赠送 / 多媒体) ──────────────
+  // Each card mirrors the official platform's "5h 限额 / 周限额 / 视频赠送" tiles.
+  // Skip cards where the model is not returned (套餐没开通 / 不在当前套餐里).
+  const cardCount = (generalModel ? 1 : 0) + (videoModel ? 1 : 0) + hailuoModels.length + musicModels.length + imageModels.length + speechModels.length;
+  const showCards = cardCount > 0;
+
+  if (showCards) {
+    if (generalModel) {
+      const pct = generalModel.percentage;
+      const used = generalModel.totalCount > 0 ? Math.round((generalModel.totalCount * pct) / 100) : 0;
+      const rt = generalModel.remainingTime;
+      const resetText = isEn
+        ? `${rt.hours}h ${rt.minutes}m until reset`
+        : `${rt.hours}h ${rt.minutes}m 后重置`;
+      content += renderCard(isEn ? '5h Quota' : '5h 限额', pct, used, generalModel.totalCount, resetText, '#9cdcfe');
     }
-
-    const used = m.usedCount;
-    const total = m.totalCount;
-    const pct = total > 0 ? Math.round((used / total) * 100) : 0;
-
-    const rh = m.remainingTime.hours;
-    const rm = m.remainingTime.minutes;
-    const resetText = `${rh}h ${rm}m`;
-
-    const weeklyCell = m.weeklyUnlimited
-      ? '∞'
-      : `${formatNum(m.weeklyUsed)}/${formatNum(m.weeklyTotal)}`;
-
-    let displayName = m.name;
-    if (displayName.includes('Hailuo-2.3-Fast-6s-768p')) displayName = 'Hailuo-Fast';
-    else if (displayName.includes('Hailuo-2.3-6s-768p')) displayName = 'Hailuo-2.3';
-
-    content += `<tr>`;
-    content += `<td align="left" ${tdStyle}><strong>${displayName}</strong></td>`;
-    content += `<td align="right" ${tdStyle}>${formatNum(used)}/${formatNum(total)}</td>`;
-    content += `<td align="right" ${tdStyle}>${pctSpan(pct)}</td>`;
-    content += `<td align="right" ${tdStyle}>${weeklyCell}</td>`;
-    content += `<td align="right" ${tdStyle}>${resetText}</td>`;
-    content += `</tr>\n`;
+    if (generalModel) {
+      const wp = generalModel.weeklyPercentage;
+      const wt = generalModel.weeklyTotal;
+      const wUsed = wt > 0 ? Math.round((wt * wp) / 100) : 0;
+      const wrt = generalModel.weeklyRemainingTime;
+      const resetText = isEn
+        ? `${wrt.days}d ${wrt.hours}h until reset`
+        : `${wrt.days}天 ${wrt.hours}h 后重置`;
+      content += renderCard(isEn ? 'Weekly Quota' : '周限额', wp, wUsed, wt, resetText, '#dcdcaa');
+    }
+    if (videoModel) {
+      const pct = videoModel.percentage;
+      const used = videoModel.totalCount > 0 ? Math.round((videoModel.totalCount * pct) / 100) : 0;
+      const rt = videoModel.remainingTime;
+      const resetText = isEn ? `${rt.hours}h ${rt.minutes}m` : `${rt.hours}h ${rt.minutes}m 后重置`;
+      content += renderCard(isEn ? 'Video Bonus' : '视频赠送', pct, used, videoModel.totalCount, resetText, '#c586c0');
+    }
+    for (const h of hailuoModels) {
+      const pct = h.percentage;
+      const used = h.totalCount > 0 ? Math.round((h.totalCount * pct) / 100) : 0;
+      const rt = h.remainingTime;
+      const resetText = isEn ? `${rt.hours}h ${rt.minutes}m` : `${rt.hours}h ${rt.minutes}m 后重置`;
+      const short = h.shortName || 'Hailuo';
+      content += renderCard(short, pct, used, h.totalCount, resetText, '#4ec9b0');
+    }
+    for (const m of musicModels) {
+      const pct = m.percentage;
+      const used = m.totalCount > 0 ? Math.round((m.totalCount * pct) / 100) : 0;
+      const rt = m.remainingTime;
+      const resetText = isEn ? `${rt.hours}h ${rt.minutes}m` : `${rt.hours}h ${rt.minutes}m 后重置`;
+      content += renderCard(m.shortName || 'music', pct, used, m.totalCount, resetText, '#ce9178');
+    }
+    for (const im of imageModels) {
+      const pct = im.percentage;
+      const used = im.totalCount > 0 ? Math.round((im.totalCount * pct) / 100) : 0;
+      const rt = im.remainingTime;
+      const resetText = isEn ? `${rt.hours}h ${rt.minutes}m` : `${rt.hours}h ${rt.minutes}m 后重置`;
+      content += renderCard(im.shortName || 'image', pct, used, im.totalCount, resetText, '#b5cea8');
+    }
+    for (const s of speechModels) {
+      const pct = s.percentage;
+      const used = s.totalCount > 0 ? Math.round((s.totalCount * pct) / 100) : 0;
+      const rt = s.remainingTime;
+      const resetText = isEn ? `${rt.hours}h ${rt.minutes}m` : `${rt.hours}h ${rt.minutes}m 后重置`;
+      content += renderCard(s.shortName || 'speech', pct, used, s.totalCount, resetText, '#dcdcaa');
+    }
   }
 
-  content += `</table>\n\n`;
-  content += `---\n\n`;
+  content += `\n\n---\n\n`;
 
   // ── Bottom 3-column Token stats: 昨日 / 近7天 / 当月 (real data from billing API) ──
   if (usageStats && (usageStats.lastDayUsage > 0 || usageStats.weeklyUsage > 0 || usageStats.planTotalUsage > 0)) {
