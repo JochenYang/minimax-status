@@ -101,20 +101,22 @@ class Renderer {
     }
 
     // 5h 限额 block — 总是显示（即使 total=0 也要显示百分比 + 5h 前缀）
-    // ⚠ 不再用 usage.total > 0 过滤（5h 限额数据对 general 模型 total=0 也要显示）
+    // ⚠ 1.2.5 字段语义修正：`usage.percentage` 现在是"剩余%"（不是"已用%"）
+    // 颜色按"剩余%"映射：剩 <30% 红 / 剩 <60% 橙 / 剩 ≥60% 绿
     if (usage && usage.percentage !== undefined && usage.percentage !== null) {
       let bg = '#065F46'; // safe (Emerald 800 - dark enough for white text)
-      if (usagePercentage >= 95) bg = '#991B1B'; // danger (Red 800)
-      else if (usagePercentage >= 75) bg = '#9A3412'; // warn (Orange 800)
+      if (usage.percentage < 30) bg = '#991B1B'; // danger (Red 800)
+      else if (usage.percentage < 60) bg = '#9A3412'; // warn (Orange 800)
 
       // total=0 时不显示 (X/Y) 段
       const usedTotalSuffix = usage.total > 0 ? ` (${usage.remaining}/${usage.total})` : '';
-      let usageText = ` 5h ${usagePercentage}%${usedTotalSuffix} `;
+      let usageText = ` 5h ${usage.percentage}%${usedTotalSuffix} `;
 
       if (weekly) {
         if (weekly.unlimited) {
           usageText += `· W ∞ `;
         } else {
+          // 1.2.5：`weekly.percentage` 现在是"剩余%"
           usageText += `· W ${weekly.percentage}% `;
         }
       }

@@ -297,32 +297,39 @@ class MinimaxAPI {
     const endTime = new Date(modelData.end_time);
 
     // Calculate counts
-    // ⚠ 新接口 usage_count 在 video 上语义不一致（usage=3/total=3 但 remaining_percent=100
-    // 表示 0% 已用），用 usedPercentage 反算 used（用户视角 = 基于官网显示的已用%）。
-    // 这让 video: total=3, usedPercentage=0 → used=0, remaining=3（"3/3 剩余"），跟官网一致。
+    // ⚠ 1.2.5 字段语义修正：跟 vscode 1.2.5 对齐，`*_remaining_percent` 字面就是"剩余%"。
+    // 直接用 `remaining_percent` 当"剩余%"显示，不再反转算"已用%"。
+    // 进度条颜色按"剩余%"映射（剩 ≥60% 绿、30-60% 黄、<30% 红）。
+    // 副文本 "X/Y 剩余" 基于 `total × (remainingPercent/100)` 算剩余次数。
     const totalCount = modelData.current_interval_total_count;
     const remainingPct = modelData.current_interval_remaining_percent;
-    const usedPercentage = remainingPct !== undefined && remainingPct !== null
-      ? Math.round(100 - remainingPct)
-      : (totalCount > 0 ? Math.round((modelData.current_interval_usage_count / totalCount) * 100) : 0);
-    const usedCount = totalCount > 0 ? Math.round((totalCount * usedPercentage) / 100) : 0;
-    const remainingCount = totalCount - usedCount;
+    const percentage = remainingPct !== undefined && remainingPct !== null
+      ? Math.round(remainingPct)
+      : null;
+    // 剩余次数 = total × (remainingPercent / 100)
+    const remainingCount = (totalCount > 0 && percentage !== null)
+      ? Math.round((totalCount * percentage) / 100)
+      : 0;
+    // 保留 usedCount 字段名（向后兼容），但语义是"剩余次数"
+    const usedCount = remainingCount;
 
     // Calculate remaining time in human-readable format
     const remainingMs = modelData.remains_time;
     const hours = Math.floor(remainingMs / (1000 * 60 * 60));
     const minutes = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
 
-    // Calculate weekly usage data — 同样基于 remaining_percent 反转
-    const weeklyUsed = modelData.current_weekly_usage_count;
+    // Calculate weekly usage data — 同样直接用 remaining_percent 字面
     const weeklyTotal = modelData.current_weekly_total_count;
     const weeklyRemainingPct = modelData.current_weekly_remaining_percent;
     const weeklyPercentage = weeklyRemainingPct !== undefined && weeklyRemainingPct !== null
-      ? Math.round(100 - weeklyRemainingPct)
-      : (weeklyTotal > 0 ? Math.floor((weeklyUsed / weeklyTotal) * 100) : 0);
-    // ⚠ Bug fix: 旧逻辑 weeklyTotal === 0 判 unlimited，但主人账号的 `general`
-    // 模型 weekly_total=0、weekly_remaining_percent=97（3% 已用，有数据）。
-    // 真正的"无限"应当是 total=0 **且** remaining_percent 也没返回。
+      ? Math.round(weeklyRemainingPct)
+      : null;
+    const weeklyRemainingCount = (weeklyTotal > 0 && weeklyPercentage !== null)
+      ? Math.round((weeklyTotal * weeklyPercentage) / 100)
+      : 0;
+    // 字段名保留 weeklyUsed，但语义是"剩余次数"
+    const weeklyUsed = weeklyRemainingCount;
+    // ⚠ "无周限"判定：周总额=0 **且** remaining_percent 也没返回（极少见）
     const weeklyUnlimited = weeklyTotal === 0 && (modelData.current_weekly_remaining_percent == null);
     const weeklyRemainingMs = modelData.weekly_remains_time;
     const weeklyDays = Math.floor(weeklyRemainingMs / (1000 * 60 * 60 * 24));
@@ -394,15 +401,17 @@ class MinimaxAPI {
             : `${minutes} 分钟后重置`,
       },
       usage: {
-        used: usedCount,
+        // ⚠ 1.2.5 字段语义修正：`usage.percentage` 现在是"剩余%"（不是"已用%"）
+        used: usedCount,        // 字段名保留（向后兼容），语义是"剩余次数"
         remaining: remainingCount,
         total: modelData.current_interval_total_count,
-        percentage: usedPercentage,
+        percentage: percentage,  // "剩余%"（100-remaining_percent 反转算的）
       },
       weekly: {
-        used: weeklyUsed,
+        // ⚠ 1.2.5 字段语义修正：`weekly.percentage` 现在是"剩余%"
+        used: weeklyUsed,        // 字段名保留（向后兼容），语义是"剩余次数"
         total: weeklyTotal,
-        percentage: weeklyPercentage,
+        percentage: weeklyPercentage,  // "剩余%"
         days: weeklyDays,
         hours: weeklyHours,
         unlimited: weeklyUnlimited,
@@ -426,35 +435,43 @@ class MinimaxAPI {
     }
 
     return apiData.model_remains.map(modelData => {
+      // ⚠ 1.2.5 字段语义修正：`percentage` 现在是"剩余%"（直接用 `remaining_percent`，不反转）
       const totalCount = modelData.current_interval_total_count;
-      // ⚠ 新接口 usage_count 在 video 上语义不一致；用 usedPercentage 反算 used
-      // 跟官网一致：video total=3, used%=0 → used=0, remaining=3（"3/3 剩余"）
       const remainingPct = modelData.current_interval_remaining_percent;
-      const usedPercentage = remainingPct !== undefined && remainingPct !== null
-        ? Math.round(100 - remainingPct)
-        : (totalCount > 0 ? Math.round((modelData.current_interval_usage_count / totalCount) * 100) : 0);
-      const usedCount = totalCount > 0 ? Math.round((totalCount * usedPercentage) / 100) : 0;
-      const remainingCount = totalCount - usedCount;
+      const percentage = remainingPct !== undefined && remainingPct !== null
+        ? Math.round(remainingPct)
+        : null;
+      // 剩余次数 = total × (remainingPercent / 100)
+      const remainingCount = (totalCount > 0 && percentage !== null)
+        ? Math.round((totalCount * percentage) / 100)
+        : 0;
+      // 保留 used 字段名（向后兼容），但语义是"剩余次数"
+      const usedCount = remainingCount;
 
-      // Weekly data — 同样基于 remaining_percent 反转
+      // Weekly data — 同样直接用 remaining_percent 字面（不反转）
       const weeklyTotal = modelData.current_weekly_total_count || 0;
-      const weeklyUsed = modelData.current_weekly_usage_count || 0;
-      const weeklyRemainingCount = weeklyTotal - weeklyUsed;
       const weeklyRemainingPct = modelData.current_weekly_remaining_percent;
       const weeklyPercentage = weeklyRemainingPct !== undefined && weeklyRemainingPct !== null
-        ? Math.round(100 - weeklyRemainingPct)
-        : (weeklyTotal > 0 ? Math.floor((weeklyUsed / weeklyTotal) * 100) : 0);
+        ? Math.round(weeklyRemainingPct)
+        : null;
+      // 剩余次数 = weeklyTotal × (remainingPercent / 100)
+      const weeklyRemainingCount = (weeklyTotal > 0 && weeklyPercentage !== null)
+        ? Math.round((weeklyTotal * weeklyPercentage) / 100)
+        : 0;
+      // 字段名保留 weeklyUsed，但语义是"剩余次数"
+      const weeklyUsed = weeklyRemainingCount;
       // Bug fix: 同 parseUsageData — 真正"无限"是 total=0 且 remaining_percent 也没
       const weeklyUnlimited = weeklyTotal === 0 && (modelData.current_weekly_remaining_percent == null);
 
       return {
         name: modelData.model_name,
-        used: usedCount,
+        // ⚠ 1.2.5 字段语义修正：`percentage` 现在是"剩余%"
+        used: usedCount,        // 字段名保留（向后兼容），语义是"剩余次数"
         remaining: remainingCount,
         total: totalCount,
-        percentage: usedPercentage,
+        percentage: percentage,  // "剩余%"
         unlimited: weeklyUnlimited,
-        weeklyPercentage,
+        weeklyPercentage,        // "剩余%"
         weeklyTotal,
         weeklyRemainingCount,
       };

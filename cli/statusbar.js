@@ -11,13 +11,14 @@ class StatusBar {
 
   render() {
     const { usage, remaining, weekly, expiry } = this.data;
+    // ⚠ 1.2.5 字段语义修正：`usage.percentage` 现在是"剩余%"（不是"已用%"）
     const percentage = usage.percentage;
 
-    // 基于已使用百分比：使用越多越危险
+    // 基于"剩余%"判断颜色：剩得多绿、剩得少红
     let color = chalk.green;
-    if (percentage >= 85) {
+    if (percentage < 30) {
       color = chalk.red;
-    } else if (percentage >= 60) {
+    } else if (percentage < 60) {
       color = chalk.yellow;
     }
 
@@ -33,7 +34,8 @@ class StatusBar {
       if (weekly.unlimited) {
         weeklyStr = ` ${chalk.blue('W')} ∞`;
       } else {
-        const weeklyColor = weekly.percentage >= 85 ? chalk.red : weekly.percentage >= 60 ? chalk.yellow : chalk.green;
+        // ⚠ 1.2.5：`weekly.percentage` 现在是"剩余%"，颜色按剩余%映射
+        const weeklyColor = weekly.percentage < 30 ? chalk.red : weekly.percentage < 60 ? chalk.yellow : chalk.green;
         // total=0 时不显示 (X/Y)
         const weeklySuffix = weekly.total > 0 ? ` (${weekly.used}/${weekly.total})` : '';
         weeklyStr = ` ${chalk.blue('W')} ${weeklyColor(weekly.percentage + '%')}${weeklySuffix}`;

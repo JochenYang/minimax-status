@@ -77,17 +77,18 @@ class StatusBar {
       return name.length > 15 ? name.substring(0, 12) + '...' : name;
     };
 
-    // 获取状态颜色
+    // 获取状态颜色（按"剩余%"映射 — 1.2.5）
+    // 剩 <30% 红 / 剩 <60% 橙 / 剩 ≥60% 绿
     const getStatusColor = (percentage) => {
-      if (percentage >= 85) return chalk.hex('#EF4444');
-      if (percentage >= 60) return chalk.hex('#F59E0B');
+      if (percentage < 30) return chalk.hex('#EF4444');
+      if (percentage < 60) return chalk.hex('#F59E0B');
       return chalk.hex('#10B981');
     };
 
     // 显示状态
     const getStatusText = (percentage) => {
-      if (percentage >= 85) return 'X';
-      if (percentage >= 60) return '!';
+      if (percentage < 30) return 'X';
+      if (percentage < 60) return '!';
       return 'OK';
     };
 
@@ -97,7 +98,7 @@ class StatusBar {
       const color = getStatusColor(model.percentage);
       const status = getStatusText(model.percentage);
       const pct = `${model.percentage}%`;
-      // total=0 时不显示 X/Y（避免 0/0 这种无数据展示）
+      // 1.2.5：标签"剩余/总额"（语义是"剩余次数/总额"）
       const usedTotal = model.total > 0 ? `${model.used}/${model.total}` : '—';
 
       lines.push(`  ${color(short.padEnd(15))} ${color(pct.padEnd(5))} ${color(usedTotal.padEnd(12))} ${color(status)}`);
@@ -129,11 +130,15 @@ class StatusBar {
     const { modelName, timeWindow, remaining, usage, weekly, expiry } = this.data;
 
     // Calculate progress bar width
+    // ⚠ 1.2.5 字段语义修正：`usage.percentage` 现在是"剩余%"。进度条按"剩余%"画：
+    // filled = (1 - 剩余/100) * width，即"已用%"对应填充。
     const width = 30;
-    const filled = Math.floor((usage.percentage / 100) * width);
+    const usedPct = 100 - usage.percentage;
+    const filled = Math.floor((usedPct / 100) * width);
     const empty = width - filled;
 
-    // Create progress bar with colors based on usage percentage
+    // Create progress bar with colors based on remaining percentage
+    // 剩 ≥60% 绿 / 剩 <60% 橙 / 剩 <30% 红
     const progressBar = this.createProgressBar(filled, empty, usage.percentage);
 
     // 构建内容行
@@ -149,8 +154,8 @@ class StatusBar {
 
     contentLines.push('');
 
-    // 使用百分比与进度条
-    contentLines.push(`${chalk.cyan('已用额度:')} ${progressBar} ${usage.percentage}%`);
+    // 5h 剩余百分比与进度条（按"剩余%"语义）
+    contentLines.push(`${chalk.cyan('5h 剩余:')} ${progressBar} ${usage.percentage}%`);
 
     // 剩余次数（total=0 时不显示）
     if (usage.total > 0) {
@@ -162,20 +167,24 @@ class StatusBar {
       contentLines.push('');
       if (weekly.unlimited) {
         // 不受限制
-        contentLines.push(`${chalk.cyan('周限额:')} ${chalk.hex('#10B981')('不受限制')}`);
+        contentLines.push(`${chalk.cyan('周剩余:')} ${chalk.hex('#10B981')('不受限制')}`);
       } else {
         // 有限制，显示具体数据
-        const weeklyPercent = weekly.percentage;
-        const weeklyColor = weeklyPercent >= 85 ? chalk.hex('#EF4444') : weeklyPercent >= 60 ? chalk.hex('#F59E0B') : chalk.hex('#10B981');
+        // ⚠ 1.2.5：`weekly.percentage` 现在是"剩余%"，颜色按剩余%映射
+        const weeklyRemainingPct = weekly.percentage;
+        const weeklyColor = weeklyRemainingPct < 30 ? chalk.hex('#EF4444') : weeklyRemainingPct < 60 ? chalk.hex('#F59E0B') : chalk.hex('#10B981');
+        // 进度条按"已用%"画（剩得多→填得少）
+        const weeklyUsedPct = 100 - weeklyRemainingPct;
         const weeklyProgress = this.createProgressBar(
-          Math.floor((weeklyPercent / 100) * 15),
-          15 - Math.floor((weeklyPercent / 100) * 15),
-          weeklyPercent
+          Math.floor((weeklyUsedPct / 100) * 15),
+          15 - Math.floor((weeklyUsedPct / 100) * 15),
+          weeklyRemainingPct
         );
-        // total=0 时不显示 (X/Y)
+        // total=0 时不显示 (X/Y)；重置时间作为副文本**同行**（跟 5h 风格一致）
         const weeklyUsedTotal = weekly.total > 0 ? ` (${weekly.used}/${weekly.total})` : '';
-        contentLines.push(`${chalk.cyan('周限额:')} ${weeklyColor(weeklyProgress)} ${weeklyColor(weekly.percentage + '%')}${weeklyUsedTotal}`);
-        contentLines.push(`${chalk.dim('     重置:')} ${weekly.text}`);
+        // 副文本不染色（用默认前景色，跟进度条"未填充"色一致；主人反馈不要灰色）
+        const weeklyResetSuffix = ` · ${weekly.text}`;
+        contentLines.push(`${chalk.cyan('周剩余:')} ${weeklyColor(weeklyProgress)} ${weeklyColor(weekly.percentage + '%')}${weeklyUsedTotal}${weeklyResetSuffix}`);
       }
     }
 
@@ -218,10 +227,11 @@ class StatusBar {
     const remainingBar = '░'.repeat(empty);
     const bar = `${usedBar}${remainingBar}`;
 
-    // 进度条颜色基于已使用百分比：使用越多越危险（红色）
-    if (percentage >= 85) {
+    // ⚠ 1.2.5 字段语义修正：`percentage` 现在是"剩余%"，颜色按"剩余%"映射
+    // 剩 <30% 红（即将用完警告）/ 剩 <60% 橙（注意使用）/ 剩 ≥60% 绿（正常使用）
+    if (percentage < 30) {
       return chalk.hex('#EF4444')(bar);
-    } else if (percentage >= 60) {
+    } else if (percentage < 60) {
       return chalk.hex('#F59E0B')(bar);
     } else {
       return chalk.hex('#10B981')(bar);
@@ -247,10 +257,11 @@ class StatusBar {
   }
 
   getStatus(percentage) {
-    // 基于已使用百分比（去 emoji 跟 vscode 1.0.7 风格一致）
-    if (percentage >= 85) {
+    // ⚠ 1.2.5 字段语义修正：`percentage` 现在是"剩余%"，状态按"剩余%"判断
+    // 剩 <30% 即将用完 / 剩 <60% 注意使用 / 剩 ≥60% 正常使用
+    if (percentage < 30) {
       return '即将用完';
-    } else if (percentage >= 60) {
+    } else if (percentage < 60) {
       return '注意使用';
     } else {
       return '正常使用';
@@ -261,11 +272,11 @@ class StatusBar {
     const { usage, remaining, modelName, expiry } = this.data;
     const status = this.getStatus(usage.percentage);
 
-    // 颜色基于已使用百分比：使用越多越危险
+    // ⚠ 1.2.5：颜色按"剩余%"映射（剩 <30 红、剩 <60 橙、剩 ≥60 绿）
     let color;
-    if (usage.percentage >= 85) {
+    if (usage.percentage < 30) {
       color = chalk.hex('#EF4444');
-    } else if (usage.percentage >= 60) {
+    } else if (usage.percentage < 60) {
       color = chalk.hex('#F59E0B');
     } else {
       color = chalk.hex('#10B981');
