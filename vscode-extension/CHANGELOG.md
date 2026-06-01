@@ -1,5 +1,36 @@
 # 更新日志
 
+## [1.4.0] - 2026-06-01
+
+### 修复
+
+- 更新 MiniMax 用量接口：`/v1/token_plan/remains` 已停止维护（旧接口返回空数据），切换到 `/v1/api/openplatform/coding_plan/remains`
+- 海外端（`minimax.io`）同步切换到 `/v1/api/openplatform/coding_plan/remains`；旧接口同步失效
+- 修复新接口 `current_interval_remaining_percent` 字段语义陷阱：值实际是"已用 %"（非"剩余 %"），统一用 `100 - value` 反转计算
+- 修复 `video` 模型 `usage_count` 字段在新接口上含义与 `general` 不一致（保持以 `remaining_percent` 为准，忽略 `usage_count`）
+- 修复周限额 `∞` 误判：旧逻辑 `weeklyTotal === 0` 判 unlimited，但总配额为 0 时后端仍会返回 `remaining_percent`，应同时检查该字段是否存在
+- 修复套餐卡 `5h 限额 / 周限额` 在没有 `total_count` 数据时被过滤掉：放宽 filter，保留有 `remaining_percent` 的模型
+
+### 优化
+
+- Tooltip 改版：从「统一表格」改为「**套餐卡片**」布局，跟官网一致
+  - 5h 限额 / 周限额 / 视频赠送 / Hailuo / music / image / speech 各自独立卡片
+  - 卡片布局：`▍ 标题 · 重置时间` 在第一行，进度条 + 百分比 + used/total 在第二行
+  - 进度条用 `▰` / `▱` (U+25B0 / U+25B1) 几何块字符，中文 fallback 字体下渲染为斜方块条纹
+  - 百分比按用量分色：< 60% 绿、60-85% 黄、> 85% 红
+  - 没有 `total_count` 的套餐（5h 限额、周限额）不显示占位破折号 `—`
+- Token 统计使用 `formatNum` 智能数字格式（万/亿）
+
+### 移除
+
+- 积分余额（`token_plan_credit`）vscode 端不再实现：该接口 MiniMax 官方**仅支持 Cookie 鉴权**，纯后端工具（vscode 扩展 / CLI）无法调用，需手动注入 cookie 才能用，太麻烦不值得。如需查看积分请前往 platform.minimaxi.com
+- 移除 `getCreditsBalance()` 方法
+- 移除 `minimaxStatus.groupId` 配置项（积分不需要，用量接口从 token JWT 解 group_id）
+- 移除 activate 时的 groupId 缺失提示弹窗
+- 移除 `x-group-id` 自定义 header（用量接口不需要）
+
+---
+
 ## [1.3.4] - 2026-05-24
 
 ### 修复

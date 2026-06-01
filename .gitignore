@@ -54,3 +54,6 @@ docs
 # Worktrees
 .worktrees/
 worktrees/
+
+# tests
+.playwright-cli
