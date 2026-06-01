@@ -244,6 +244,10 @@ program
       if (stdinData) {
         if (stdinData.model && stdinData.model.display_name) {
           displayModel = stdinData.model.display_name;
+          // ⚠ 去掉尾部的 [1m]（lowercase m）后缀 — Claude Code 给 reasoning model
+          // 自动加这个标识（区别于 [1M] 大写 = 1M context window），statusline 渲染
+          // 看起来重复，去掉后模型名更清爽。
+          displayModel = displayModel.replace(/\[1m\]$/, '');
           modelId = stdinData.model.id;
         } else if (stdinData.model && stdinData.model.id) {
           displayModel = stdinData.model.id;
