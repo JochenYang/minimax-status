@@ -11,12 +11,13 @@ MiniMax Token-Plan 使用状态监控工具，支持 CLI 命令和 Claude Code �
 
 | 插件 | 版本 | 安装方式 |
 |------|------|----------|
-| **CLI** | 1.2.0 | `npm install -g minimax-status` |
-| **VSCode** | 1.3.2 | [VSCode Marketplace](https://marketplace.visualstudio.com/items?itemName=JochenYang.minimax-status-vscode) 或 [下载 VSIX](https://github.com/JochenYang/minimax-status/releases) |
+| **CLI** | 1.2.2 | `npm install -g minimax-status` |
+| **VSCode** | 1.4.0 | [VSCode Marketplace](https://marketplace.visualstudio.com/items?itemName=JochenYang.minimax-status-vscode) 或 [下载 VSIX](https://github.com/JochenYang/minimax-status/releases) |
 
 ## 特性
 
 - ✅ **实时状态监控**: 显示 MiniMax Token-Plan 使用额度、剩余次数、重置时间
+- ✅ **套餐卡 Tooltip**（VSCode 1.4.0+）: 5h 限额 / 周限额 / 视频赠送 / Hailuo / music / image / speech 各自独立卡片，跟官网一致
 - ✅ **上下文窗口跟踪**: 智能解析转录文件，准确显示当前会话的上下文使用量
 - ✅ **多种显示模式**: 详细模式、紧凑模式、持续状态栏
 - ✅ **Claude Code 集成**: 可在 Claude Code 底部状态栏显示
@@ -24,6 +25,8 @@ MiniMax Token-Plan 使用状态监控工具，支持 CLI 命令和 Claude Code �
 - ✅ **跨会话支持**: 自动从项目历史中查找上下文信息
 - ✅ **简洁命令**: `minimax status` 查看状态
 - ✅ **安全存储**: 凭据存储在独立的配置文件中
+
+> **注意**: 1.4.0 起，MiniMax 官方更新了用量接口（`/v1/token_plan/remains` → `/v1/api/openplatform/coding_plan/remains`）。本工具同步切换。海外端（`minimax.io`）也同步切换。
 
 ## 快速开始
 
@@ -47,6 +50,8 @@ minimax auth <token>
 
 配置信息将保存在 `~/.minimax-config.json` 文件中。
 
+> 自 1.2.6 起，CLI 不再需要 GroupId 配置 — 用量接口从 token JWT 自动解析 group_id。
+
 获取令牌:
 
 1. 访问 [MiniMax 开放平台](https://platform.minimaxi.com/user-center/payment/coding-plan)
@@ -64,6 +69,9 @@ minimax status --compact
 
 # 持续监控模式
 minimax status --watch
+
+# 所有模型
+minimax list
 ```
 
 ## VSCode 扩展
@@ -133,10 +141,24 @@ npm run package
 集成成功后，底部状态栏将显示:
 
 ```
-cli ❯  main * ❯ MiniMax-M* ❯ 205K ❯ 0% (4500/4500) · W ∞ ❯ 4h59m ❯ 剩336天
+cli  main *  MiniMax-M3[1M][1m]  25% · 249.5k  5h 41% · W 6%  2h59m  剩291天
 ```
 
-显示格式：`目录 ❯ 分支 ❯ 模型 ❯ 上下文 ❯ 百分比(已用/总量) · 周限额 ❯ 倒计时 ❯ 到期天数`
+显示格式：`目录 ❯ 分支 ❯ 模型 ❯ 上下文窗口% · token ❯ 5h限额% · 周限额% ❯ 5h倒计时 ❯ 到期天数`
+
+**字段说明**:
+
+| 字段 | 示例 | 含义 |
+|------|------|------|
+| 目录 | `cli` | 当前工作目录（短名） |
+| 分支 | `main *` | Git 分支 + 未提交状态（`*`） |
+| 模型 | `MiniMax-M3[1M][1m]` | 实时模型名（从 stdin 读） |
+| 上下文 | `25% · 249.5k` | 上下文窗口使用 % + token 用量 |
+| 5h 限额 | `5h 41% · W 6%` | 5h 限额百分比 + 周限额百分比 |
+| 倒计时 | `2h59m` | 5h 限额下次重置倒计时 |
+| 到期 | `剩291天` | 套餐到期剩余天数 |
+
+> 自 1.2.2 起，5h 限额 block **总是显示**（即使 `total=0`），并加 `5h` 前缀区分上下文窗口。`total=0` 时不显示 `(X/Y)` 段。
 
 **颜色说明**:
 
@@ -171,11 +193,13 @@ my-app │ main * │ ...
 
 状态栏会智能显示当前会话的上下文窗口使用情况：
 
-- **有转录数据时**: 显示 `⚡ 百分比·已用 tokens`
-  - 例如: `⚡ 85%·150.0k tokens` 表示已使用 150K tokens，占容量的 85%
+- **有转录数据时**: 显示 `百分比 · 已用 tokens`（蓝色块）
+  - 例如: `25% · 249.5k` 表示已使用 249.5K tokens，占上下文窗口的 25%
 
 - **无转录数据时**: 仅显示上下文窗口总容量
-  - 例如: `200K` 表示当前模型的上下文窗口大小
+  - 例如: `205K` 表示当前模型的上下文窗口大小
+
+> 自 1.2.2 起，5h 限额独立显示在 `5h 41%` block（带 `5h` 前缀区分上下文窗口百分比）。
 
 **智能特性**:
 
@@ -218,10 +242,10 @@ my-app │ main * │ ...
 集成成功后，底部状态栏将显示:
 
 ```
-cli ❯  main * ❯ MiniMax-M* ❯ 205K ❯ 0% (4500/4500) · W ∞ ❯ 4h59m ❯ 剩336天
+cli  main *  MiniMax-M3[1M][1m]  25% · 249.5k  5h 41% · W 6%  2h59m  剩291天
 ```
 
-显示格式：`目录 ❯ 分支 ❯ 模型 ❯ 上下文 ❯ 百分比(已用/总量) · 周限额 ❯ 倒计时 ❯ 到期天数`
+显示格式：`目录 ❯ 分支 ❯ 模型 ❯ 上下文窗口% · token ❯ 5h限额% · 周限额% ❯ 5h倒计时 ❯ 到期天数`
 
 **颜色说明**:
 
@@ -236,44 +260,46 @@ cli ❯  main * ❯ MiniMax-M* ❯ 205K ❯ 0% (4500/4500) · W ∞ ❯ 4h59m
 ┌──────────────────────────────────────────────────────┐
 │ MiniMax Claude Code 使用状态                        │
 │                                                      │
-│ 当前模型: MiniMax-M*                                 │
-│ 时间窗口: 05:00-10:00(UTC+8)                         │
-│ 剩余时间: 6 分钟后重置                               │
+│ 剩余时间: 3 小时 17 分钟后重置                        │
 │                                                      │
-│ 已用额度: █░░░░░░░░░░░░░░░░░░░░░░░░░░ 7%          │
-│      剩余: 4172/4500 次调用                          │
+│ 已用额度: █████████░░░░░░░░░░░░░░░░░░ 33%          │
 │                                                      │
-│ 周限额: 不受限制                                     │
-│ 套餐到期: 03/19/2027 (还剩 336 天)                   │
+│ 周限额: ░░░░░░░░░░░░░░░ 5%                            │
+│      重置: 6 天 12 小时后重置                         │
+│ 套餐到期: 03/19/2027 (还剩 291 天)                    │
 │                                                      │
-│ 📊 Token 消耗统计                                    │
-│  昨日消耗: 5380.6万                                  │
-│  近7天消耗: 4.8亿                                    │
-│  当月消耗: 15亿                                      │
+│ Token 消耗统计                                      │
+│  昨日消耗: 766.3万                                  │
+│  近7天消耗: 1039.9万                                │
+│  当月消耗: 0                                         │
 │                                                      │
-│ 📋 所有模型额度                                      │
-│   MiniMax-M*     7%   328/4500    ✓                │
-│   speech-hd      0%   0/19000     ✓                │
-│   Hailuo         0%   0/3         ✓                │
+│ 所有模型额度                                        │
+│   general     33%   —             OK               │
+│   video       0%   0/3           OK               │
 │   ...                                            │
 │                                                      │
-│ 状态: ✓ 正常使用                                   │
+│ 状态: 正常使用                                     │
 └──────────────────────────────────────────────────────┘
 ```
+
+> 自 1.2.2 起：移除"当前模型"和"时间窗口"行（冗余信息），去除 emoji（`📊` `📋` `✓` `⚡` `⛔`），`total=0` 时不显示 `(X/Y)` 段。
 
 ### 紧凑模式
 
 ```
-● MiniMax-M* 0% (4498/4500) • 4 小时 59 分钟后重置 • ✓ 正常使用 • 剩余: 336天
+general 33% 3h17m W 5% 剩291天
+```
+
+> 紧凑模式直接调用 `minimax status --compact`。字段顺序：`已用% 倒计时 周限额% 剩N天`。
 ```
 
 ### 持续状态栏模式
 
 ```
-✓ MiniMax 状态栏已启动
+OK MiniMax 状态栏已启动
 按 Ctrl+C 退出
 
-[● MiniMax-M2 27% • 3307/4500 • 1h26m ⚡
+[general 27% 1h26m W 5%
 ```
 
 ## 截图演示
@@ -290,8 +316,10 @@ cli ❯  main * ❯ MiniMax-M* ❯ 205K ❯ 0% (4500/4500) · W ∞ ❯ 4h59m
 
 | 命令                    | 描述                                        | 示例                        |
 | --------------------- | ------------------------------------------- | ----------------------------- |
-| `minimax auth`        | 设置认证凭据                                 | `minimax auth <token>`         |
+| `minimax auth`        | 设置认证凭据（只需要 token，不需要 groupId）     | `minimax auth <token>`         |
 | `minimax status`      | 显示当前使用状态（支持 --compact、--watch） | `minimax status`                 |
+| `minimax list`        | 列出所有模型用量                              | `minimax list`                    |
+| `minimax health`      | 检查配置和连接状态                            | `minimax health`                  |
 | `minimax bar`         | 终端底部持续状态栏                          | `minimax bar`                    |
 | `minimax statusline`  | Claude Code 状态栏集成                      | 用于 Claude Code 配置            |
 | `minimax droid-statusline` | Droid 状态栏集成                      | 用于 Droid 配置            |
@@ -304,23 +332,80 @@ cli ❯  main * ❯ MiniMax-M* ❯ 205K ❯ 0% (4500/4500) · W ∞ ❯ 4h59m
 | ------ | ---------------------------------- |
 | 目录   | 当前工作目录                       |
 | 分支   | Git 分支名称（含未提交状态）       |
-| 模型   | MiniMax 模型名称                   |
-| 上下文 | 上下文窗口使用 tokens               |
-| Usage  | 使用量百分比(已用/总量)           |
+| 模型   | MiniMax 模型名称（实时）          |
+| 上下文 | 上下文窗口使用 % + tokens          |
+| 5h 限额 | 5h 限额使用 %（即使 total=0 也显示）|
 | 周限额 | 周配额使用情况，∞ 表示无限制       |
-| ⏱     | 额度重置倒计时                     |
+| 倒计时 | 5h 限额重置倒计时                   |
 | 到期   | 订阅到期时间（颜色动态变化）        |
 
 ### 颜色规则
 
 | 场景          | 颜色 | 说明     |
 | ------------- | ---- | -------- |
+| 5h 限额 ≥85%  | 红色 | 危险状态 |
+| 5h 限额 60-85% | 黄色 | 注意使用 |
+| 5h 限额 <60%  | 绿色 | 正常使用 |
 | 上下文 ≥85%   | 红色 | 危险状态 |
 | 上下文 60-85% | 黄色 | 注意使用 |
 | 上下文 <60%   | 绿色 | 正常使用 |
 | 到期 ≤ 3天    | 红色 | 即将到期 |
 | 到期 ≤ 7天    | 黄色 | 即将到期 |
 | 到期 > 7天    | 绿色 | 订阅正常 |
+
+## VSCode 扩展说明
+
+自 1.4.0 起，VSCode 扩展 Tooltip 改用**套餐卡**布局（跟官网 platform.minimaxi.com/console/usage 一致），不再用统一表格。
+
+### 套餐卡布局
+
+每张套餐独立卡片：
+
+```
+MINIMAX · 配额面板            周期: 2026-06-01 — 2026-06-07
+─────────────────────────────────────────
+
+▍ 5h 限额  ·  4h 12m 后重置
+▰▰▰░░░░░░░░░░░░░  18%
+
+▍ 周限额  ·  6天 12h 后重置
+▰░░░░░░░░░░░░░░░  3%
+
+▍ 视频赠送  ·  13h 18m 后重置
+░░░░░░░░░░░░░░░░  0%  0/3
+
+─────────────────────────────────────────
+Token 消耗
+昨日消耗    近 7 天    当月消耗
+766.3万     1039.9万   0
+─────────────────────────────────────────
+到期 291天 · 更新于 11:09:40 · 点击刷新
+```
+
+> **进度条字符** `▰` `▱` (U+25B0 / U+25B1)：在中文 fallback 字体（Microsoft YaHei）下渲染为斜方块纹理。在 Cascadia Code / Consolas 等宽字体下渲染为实心方块。
+
+### 套餐卡字段
+
+| 套餐 | 数据来源 | 示例 |
+|------|----------|------|
+| 5h 限额 | `general` 模型 `current_interval_*` | `▰▰▰░░░ 18%` |
+| 周限额 | `general` 模型 `current_weekly_*` | `▰░░░░░ 3%` |
+| 视频赠送 | `video` 模型 `current_interval_*` | `░░░░░░ 0% 0/3` |
+| Hailuo | `Hailuo-*` 模型 | `▰▰░░░░░ 33% 1/3` |
+| music | `music-*` 模型 | `░░░░░░ 0% 0/10` |
+| image | `image-*` 模型 | `░░░░░░ 0% 0/20` |
+| speech | `speech-*` 模型 | `░░░░░░ 0% 0/100` |
+
+> **多模型数据过滤规则**：保留有 `remaining_percent` 数据的模型（即使 `total=0`）。`status != 1` 的模型视为废弃，不显示。
+
+### 已知限制：积分余额不在 VSCode 中显示
+
+MiniMax 官方积分余额接口（`/backend/account/token_plan_credit`）**仅支持 Cookie 鉴权**：
+
+- ✅ 浏览器（带 Cookie）：能调通
+- ❌ VSCode 扩展（纯后端 Bearer sk-cp-...）：401 not login
+
+如需查看积分余额，请前往 [platform.minimaxi.com/console/usage](https://platform.minimaxi.com/console/usage)。本工具**未实现**积分余额的本地展示，**因为**让用户在 VSCode 设置里手动粘贴 Cookie 字符串得不偿失。
 
 ## 配置文件
 
