@@ -45,7 +45,6 @@ program
     let checks = {
       config: false,
       token: false,
-      groupId: false,
       api: false,
     };
 
@@ -71,16 +70,10 @@ program
       console.log(chalk.red("✗ Token: ") + chalk.gray("未配置"));
     }
 
-    // 检查GroupID
-    if (api.groupId) {
-      checks.groupId = true;
-      console.log(chalk.green("✓ GroupID: ") + chalk.gray("已配置"));
-    } else {
-      console.log(chalk.red("✗ GroupID: ") + chalk.gray("未配置"));
-    }
+    // ⚠ 不再检查 GroupID — 用量接口从 token JWT 自动解析 group_id，不需要手动配置
 
     // 测试API连接
-    if (checks.token && checks.groupId) {
+    if (checks.token) {
       try {
         await api.getUsageStatus();
         checks.api = true;
