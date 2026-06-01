@@ -11,7 +11,7 @@ MiniMax Token-Plan 使用状态监控工具，支持 CLI 命令和 Claude Code �
 
 | 插件 | 版本 | 安装方式 |
 |------|------|----------|
-| **CLI** | 1.2.2 | `npm install -g minimax-status` |
+| **CLI** | 1.2.4 | `npm install -g minimax-status` |
 | **VSCode** | 1.4.0 | [VSCode Marketplace](https://marketplace.visualstudio.com/items?itemName=JochenYang.minimax-status-vscode) 或 [下载 VSIX](https://github.com/JochenYang/minimax-status/releases) |
 
 ## 特性
@@ -51,6 +51,8 @@ minimax auth <token>
 配置信息将保存在 `~/.minimax-config.json` 文件中。
 
 > 自 1.2.6 起，CLI 不再需要 GroupId 配置 — 用量接口从 token JWT 自动解析 group_id。
+>
+> 自 1.2.4 起，`minimax health` 不再检查 GroupID 字段（避免假报错）。健康检查只检查配置文件、Token、API 连接 3 项。
 
 获取令牌:
 
@@ -141,7 +143,7 @@ npm run package
 集成成功后，底部状态栏将显示:
 
 ```
-cli  main *  MiniMax-M3[1M][1m]  25% · 249.5k  5h 41% · W 6%  2h59m  剩291天
+cli  main *  MiniMax-M3[1M]  25% · 249.5k  5h 41% · W 6%  2h59m  剩291天
 ```
 
 显示格式：`目录 ❯ 分支 ❯ 模型 ❯ 上下文窗口% · token ❯ 5h限额% · 周限额% ❯ 5h倒计时 ❯ 到期天数`
@@ -152,13 +154,15 @@ cli  main *  MiniMax-M3[1M][1m]  25% · 249.5k  5h 41% · W 6%  2h59m  剩291天
 |------|------|------|
 | 目录 | `cli` | 当前工作目录（短名） |
 | 分支 | `main *` | Git 分支 + 未提交状态（`*`） |
-| 模型 | `MiniMax-M3[1M][1m]` | 实时模型名（从 stdin 读） |
+| 模型 | `MiniMax-M3[1M]` | 实时模型名（从 stdin 读） |
 | 上下文 | `25% · 249.5k` | 上下文窗口使用 % + token 用量 |
 | 5h 限额 | `5h 41% · W 6%` | 5h 限额百分比 + 周限额百分比 |
 | 倒计时 | `2h59m` | 5h 限额下次重置倒计时 |
 | 到期 | `剩291天` | 套餐到期剩余天数 |
 
 > 自 1.2.2 起，5h 限额 block **总是显示**（即使 `total=0`），并加 `5h` 前缀区分上下文窗口。`total=0` 时不显示 `(X/Y)` 段。
+>
+> 自 1.2.3 起，statusline 模型名去掉尾部 `[1m]`（lowercase m）后缀 — Claude Code 给启用了 reasoning 的 model 自动加的标识。`[1M]` (大写 M, 1M context window) 仍保留。`MiniMax-M3[1M][1m]` → `MiniMax-M3[1M]`。
 
 **颜色说明**:
 
@@ -242,7 +246,7 @@ my-app │ main * │ ...
 集成成功后，底部状态栏将显示:
 
 ```
-cli  main *  MiniMax-M3[1M][1m]  25% · 249.5k  5h 41% · W 6%  2h59m  剩291天
+cli  main *  MiniMax-M3[1M]  25% · 249.5k  5h 41% · W 6%  2h59m  剩291天
 ```
 
 显示格式：`目录 ❯ 分支 ❯ 模型 ❯ 上下文窗口% · token ❯ 5h限额% · 周限额% ❯ 5h倒计时 ❯ 到期天数`
@@ -299,7 +303,7 @@ general 33% 3h17m W 5% 剩291天
 OK MiniMax 状态栏已启动
 按 Ctrl+C 退出
 
-[general 27% 1h26m W 5%
+general 27% 1h26m W 5%
 ```
 
 ## 截图演示
