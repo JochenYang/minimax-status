@@ -10,7 +10,7 @@ class StatusBar {
   }
 
   render() {
-    const { usage, remaining, modelName, weekly } = this.data;
+    const { usage, remaining, weekly, expiry } = this.data;
     const percentage = usage.percentage;
 
     // 基于已使用百分比：使用越多越危险
@@ -21,22 +21,29 @@ class StatusBar {
       color = chalk.yellow;
     }
 
-    const statusIcon = percentage >= 85 ? '⚠' : percentage >= 60 ? '⚡' : '✓';
     const remainingText = remaining.hours > 0
       ? `${remaining.hours}h${remaining.minutes}m`
       : `${remaining.minutes}m`;
 
+    // total=0 时不显示 X/Y（避免 0/0 这种无数据展示，保留百分比）
+    const usedTotalSuffix = usage.total > 0 ? ` (${usage.used}/${usage.total})` : '';
+
     let weeklyStr = '';
     if (weekly) {
       if (weekly.unlimited) {
-        weeklyStr = ` ${chalk.blue('W')} ♾️`;
+        weeklyStr = ` ${chalk.blue('W')} ∞`;
       } else {
         const weeklyColor = weekly.percentage >= 85 ? chalk.red : weekly.percentage >= 60 ? chalk.yellow : chalk.green;
-        weeklyStr = ` ${chalk.blue('W')} ${weeklyColor(weekly.percentage + '%')}`;
+        // total=0 时不显示 (X/Y)
+        const weeklySuffix = weekly.total > 0 ? ` (${weekly.used}/${weekly.total})` : '';
+        weeklyStr = ` ${chalk.blue('W')} ${weeklyColor(weekly.percentage + '%')}${weeklySuffix}`;
       }
     }
 
-    return `${color('●')} ${modelName} ${color(percentage + '%')} (${usage.used}/${usage.total}) ${remainingText}${weeklyStr} ${statusIcon}`;
+    // 到期信息（剩 N 天）— 与 claude-code statusline 对齐
+    const expiryStr = expiry ? ` 剩${expiry.daysRemaining}天` : '';
+
+    return `${color(percentage + '%')}${usedTotalSuffix} ${remainingText}${weeklyStr}${expiryStr}`;
   }
 }
 

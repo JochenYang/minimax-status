@@ -81,10 +81,11 @@ class MinimaxAPI {
 
     try {
       const response = await axios.get(
-        `https://www.minimaxi.com/v1/token_plan/remains`,
+        `https://www.minimaxi.com/v1/api/openplatform/coding_plan/remains`,
         {
           headers: {
             Authorization: `Bearer ${this.token}`,
+            referer: "https://platform.minimaxi.com/",
             Accept: "application/json",
           },
           timeout: 10000, // 10秒超时
@@ -296,24 +297,33 @@ class MinimaxAPI {
     const endTime = new Date(modelData.end_time);
 
     // Calculate counts
-    // 新接口 usage_count 是已使用次数（正确值）
-    const usedCount = modelData.current_interval_usage_count;
-    const remainingCount = modelData.current_interval_total_count - usedCount;
-
-    // Calculate percentage - 基于已使用次数的百分比
-    const usedPercentage = Math.round(
-      (usedCount / modelData.current_interval_total_count) * 100
-    );
+    // ⚠ 新接口 usage_count 在 video 上语义不一致（usage=3/total=3 但 remaining_percent=100
+    // 表示 0% 已用），用 usedPercentage 反算 used（用户视角 = 基于官网显示的已用%）。
+    // 这让 video: total=3, usedPercentage=0 → used=0, remaining=3（"3/3 剩余"），跟官网一致。
+    const totalCount = modelData.current_interval_total_count;
+    const remainingPct = modelData.current_interval_remaining_percent;
+    const usedPercentage = remainingPct !== undefined && remainingPct !== null
+      ? Math.round(100 - remainingPct)
+      : (totalCount > 0 ? Math.round((modelData.current_interval_usage_count / totalCount) * 100) : 0);
+    const usedCount = totalCount > 0 ? Math.round((totalCount * usedPercentage) / 100) : 0;
+    const remainingCount = totalCount - usedCount;
 
     // Calculate remaining time in human-readable format
     const remainingMs = modelData.remains_time;
     const hours = Math.floor(remainingMs / (1000 * 60 * 60));
     const minutes = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
 
-    // Calculate weekly usage data
+    // Calculate weekly usage data — 同样基于 remaining_percent 反转
     const weeklyUsed = modelData.current_weekly_usage_count;
     const weeklyTotal = modelData.current_weekly_total_count;
-    const weeklyPercentage = weeklyTotal > 0 ? Math.floor((weeklyUsed / weeklyTotal) * 100) : 0;
+    const weeklyRemainingPct = modelData.current_weekly_remaining_percent;
+    const weeklyPercentage = weeklyRemainingPct !== undefined && weeklyRemainingPct !== null
+      ? Math.round(100 - weeklyRemainingPct)
+      : (weeklyTotal > 0 ? Math.floor((weeklyUsed / weeklyTotal) * 100) : 0);
+    // ⚠ Bug fix: 旧逻辑 weeklyTotal === 0 判 unlimited，但主人账号的 `general`
+    // 模型 weekly_total=0、weekly_remaining_percent=97（3% 已用，有数据）。
+    // 真正的"无限"应当是 total=0 **且** remaining_percent 也没返回。
+    const weeklyUnlimited = weeklyTotal === 0 && (modelData.current_weekly_remaining_percent == null);
     const weeklyRemainingMs = modelData.weekly_remains_time;
     const weeklyDays = Math.floor(weeklyRemainingMs / (1000 * 60 * 60 * 24));
     const weeklyHours = Math.floor((weeklyRemainingMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -395,7 +405,7 @@ class MinimaxAPI {
         percentage: weeklyPercentage,
         days: weeklyDays,
         hours: weeklyHours,
-        unlimited: weeklyTotal === 0,
+        unlimited: weeklyUnlimited,
         text: weeklyDays > 0
           ? `${weeklyDays} 天 ${weeklyHours} 小时后重置`
           : `${weeklyHours} 小时后重置`,
@@ -417,16 +427,25 @@ class MinimaxAPI {
 
     return apiData.model_remains.map(modelData => {
       const totalCount = modelData.current_interval_total_count;
-      // 新接口 usage_count 是已使用次数（正确值）
-      const usedCount = modelData.current_interval_usage_count;
+      // ⚠ 新接口 usage_count 在 video 上语义不一致；用 usedPercentage 反算 used
+      // 跟官网一致：video total=3, used%=0 → used=0, remaining=3（"3/3 剩余"）
+      const remainingPct = modelData.current_interval_remaining_percent;
+      const usedPercentage = remainingPct !== undefined && remainingPct !== null
+        ? Math.round(100 - remainingPct)
+        : (totalCount > 0 ? Math.round((modelData.current_interval_usage_count / totalCount) * 100) : 0);
+      const usedCount = totalCount > 0 ? Math.round((totalCount * usedPercentage) / 100) : 0;
       const remainingCount = totalCount - usedCount;
-      const usedPercentage = totalCount > 0 ? Math.round((usedCount / totalCount) * 100) : 0;
 
-      // Weekly data
+      // Weekly data — 同样基于 remaining_percent 反转
       const weeklyTotal = modelData.current_weekly_total_count || 0;
       const weeklyUsed = modelData.current_weekly_usage_count || 0;
       const weeklyRemainingCount = weeklyTotal - weeklyUsed;
-      const weeklyPercentage = weeklyTotal > 0 ? Math.floor((weeklyUsed / weeklyTotal) * 100) : 0;
+      const weeklyRemainingPct = modelData.current_weekly_remaining_percent;
+      const weeklyPercentage = weeklyRemainingPct !== undefined && weeklyRemainingPct !== null
+        ? Math.round(100 - weeklyRemainingPct)
+        : (weeklyTotal > 0 ? Math.floor((weeklyUsed / weeklyTotal) * 100) : 0);
+      // Bug fix: 同 parseUsageData — 真正"无限"是 total=0 且 remaining_percent 也没
+      const weeklyUnlimited = weeklyTotal === 0 && (modelData.current_weekly_remaining_percent == null);
 
       return {
         name: modelData.model_name,
@@ -434,7 +453,7 @@ class MinimaxAPI {
         remaining: remainingCount,
         total: totalCount,
         percentage: usedPercentage,
-        unlimited: weeklyTotal === 0,
+        unlimited: weeklyUnlimited,
         weeklyPercentage,
         weeklyTotal,
         weeklyRemainingCount,

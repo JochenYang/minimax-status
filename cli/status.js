@@ -35,7 +35,7 @@ class StatusBar {
 
     const lines = [];
     lines.push('');
-    lines.push(chalk.bold('📊 Token 消耗统计'));
+    lines.push(chalk.bold('Token 消耗统计'));
 
     // 计算表格宽度
     const leftWidth = 12; // "昨日消耗:  "
@@ -63,7 +63,7 @@ class StatusBar {
 
     const lines = [];
     lines.push('');
-    lines.push(chalk.bold('📋 所有模型额度'));
+    lines.push(chalk.bold('所有模型额度'));
 
     // 简化模型名称映射
     const shortName = (name) => {
@@ -86,9 +86,9 @@ class StatusBar {
 
     // 显示状态
     const getStatusText = (percentage) => {
-      if (percentage >= 85) return '⛔';
-      if (percentage >= 60) return '⚡';
-      return '✓';
+      if (percentage >= 85) return 'X';
+      if (percentage >= 60) return '!';
+      return 'OK';
     };
 
     // 每行显示一个模型
@@ -97,7 +97,8 @@ class StatusBar {
       const color = getStatusColor(model.percentage);
       const status = getStatusText(model.percentage);
       const pct = `${model.percentage}%`;
-      const usedTotal = `${model.used}/${model.total}`;
+      // total=0 时不显示 X/Y（避免 0/0 这种无数据展示）
+      const usedTotal = model.total > 0 ? `${model.used}/${model.total}` : '—';
 
       lines.push(`  ${color(short.padEnd(15))} ${color(pct.padEnd(5))} ${color(usedTotal.padEnd(12))} ${color(status)}`);
     }
@@ -143,13 +144,6 @@ class StatusBar {
 
     contentLines.push('');
 
-    // 模型名称
-    contentLines.push(`${chalk.cyan('当前模型:')} ${modelName}`);
-
-    // 时间窗口
-    const timeWindowText = `${timeWindow.start}-${timeWindow.end}(${timeWindow.timezone})`;
-    contentLines.push(`${chalk.cyan('时间窗口:')} ${timeWindowText}`);
-
     // 剩余时间
     contentLines.push(`${chalk.cyan('剩余时间:')} ${remaining.text}`);
 
@@ -158,8 +152,10 @@ class StatusBar {
     // 使用百分比与进度条
     contentLines.push(`${chalk.cyan('已用额度:')} ${progressBar} ${usage.percentage}%`);
 
-    // 剩余次数
-    contentLines.push(`${chalk.dim('     剩余:')} ${usage.remaining}/${usage.total} 次调用`);
+    // 剩余次数（total=0 时不显示）
+    if (usage.total > 0) {
+      contentLines.push(`${chalk.dim('     剩余:')} ${usage.remaining}/${usage.total} 次调用`);
+    }
 
     // 周用量（如果有数据）
     if (weekly) {
@@ -176,7 +172,9 @@ class StatusBar {
           15 - Math.floor((weeklyPercent / 100) * 15),
           weeklyPercent
         );
-        contentLines.push(`${chalk.cyan('周限额:')} ${weeklyColor(weeklyProgress)} ${weeklyColor(weekly.percentage + '%')} (${weekly.used}/${weekly.total})`);
+        // total=0 时不显示 (X/Y)
+        const weeklyUsedTotal = weekly.total > 0 ? ` (${weekly.used}/${weekly.total})` : '';
+        contentLines.push(`${chalk.cyan('周限额:')} ${weeklyColor(weeklyProgress)} ${weeklyColor(weekly.percentage + '%')}${weeklyUsedTotal}`);
         contentLines.push(`${chalk.dim('     重置:')} ${weekly.text}`);
       }
     }
@@ -249,13 +247,13 @@ class StatusBar {
   }
 
   getStatus(percentage) {
-    // 基于已使用百分比
+    // 基于已使用百分比（去 emoji 跟 vscode 1.0.7 风格一致）
     if (percentage >= 85) {
-      return '⛔ 即将用完';
+      return '即将用完';
     } else if (percentage >= 60) {
-      return '⚡ 注意使用';
+      return '注意使用';
     } else {
-      return '✓ 正常使用';
+      return '正常使用';
     }
   }
 
@@ -287,7 +285,7 @@ class StatusBar {
 
     const lines = [];
     lines.push('');
-    lines.push(chalk.bold('📋 所有模型额度'));
+    lines.push(chalk.bold('所有模型额度'));
 
     // 表头
     lines.push(chalk.gray('─'.repeat(55)));
