@@ -1060,13 +1060,16 @@ function updateStatusBar(statusBarItem, api, data, apiData, usageStats, overseas
   } else {
     // 显示格式：剩余时间 百分比 · 周 百分比 · $(gift) 积分 数字
     const remainingText = remaining.hours > 0 ? `${remaining.hours}h` : `${remaining.minutes}m`;
-    const weeklyLabel = language === 'en-US' ? 'W' : '周';
+    const weeklyLabel = language === 'en-US' ? 'W Rem' : '周剩';
     let weeklyText = '';
     if (data.weekly) {
       if (data.weekly.unlimited) {
         weeklyText = ` · ${weeklyLabel} ∞`;
       } else {
-        weeklyText = ` · ${weeklyLabel} ${data.weekly.percentage}%`;
+        // ⚠ 1.5.0：周字段显示"剩余%"（跟 tooltip 一致），所以反转 data.weekly.percentage
+        // (data.weekly.percentage 当前是"已用%"，需要 100 - value 算"剩余%")
+        const weeklyRemainingPct = 100 - data.weekly.percentage;
+        weeklyText = ` · ${weeklyLabel} ${weeklyRemainingPct}%`;
       }
     }
     statusBarItem.text = `$(clock) ${remainingText} ${percentage}%${weeklyText}`;
@@ -1149,18 +1152,23 @@ function updateStatusBar(statusBarItem, api, data, apiData, usageStats, overseas
 
   // ── Render one "package card" (5h / 周 / video / Hailuo / etc.) ──
   // Layout (2 rows):
-  //   Row 1:  ▍ title  ·  reset-time           (reset-time ON THE SAME LINE as title)
-  //   Row 2:  [▰▰▰▰▱▱▱▱]  X%  used/total       (percentage aligns with progress bar)
-  // used/total is hidden entirely when total=0 (e.g. 5h 限额 has no
+  //   Row 1:  ▍ title  ·  X/Y 剩余  ·  reset-time   (X/Y 剩余 跟 title 同行，跟官网一致)
+  //   Row 2:  [▰▰▰▰▱▱▱▱]  X%                          (只进度条 + 百分比)
+  // ⚠ 1.5.0 语义修正：`pct` 参数现在是"剩余%"（不是"已用%"），跟官网一致。
+  //   颜色按"剩余%"映射：剩 ≥60% 绿 / 剩 30-60% 黄 / 剩 <30% 红。
+  //   "X/Y 剩余" 移到 Row 1（跟 title 同行），跟官网 platform.minimaxi.com/console/usage 平台一致。
+  // X/Y 剩余 hidden entirely when total=0 (e.g. 5h 限额 has no
   // explicit total count from the API).
-  const renderCard = (label, pct, used, total, resetText, accent = '#9cdcfe') => {
-    const pctColor = pct < 60 ? '#3fb950' : pct < 85 ? '#d29922' : '#f85149';
-    const usedTotalSuffix = total > 0 ? ` <span style="opacity:0.6">${formatNum(used)}/${formatNum(total)}</span>` : '';
+  const renderCard = (label, pct, remaining, total, resetText, accent = '#9cdcfe') => {
+    // 按"剩余%"判断颜色：剩得多绿、剩得少红
+    const pctColor = pct >= 60 ? '#3fb950' : pct >= 30 ? '#d29922' : '#f85149';
+    // Row 1 副文本：X/Y 剩余（如果 total > 0），跟 title 同行
+    const remainingText = total > 0 ? `<span style="opacity:0.7">${formatNum(remaining)}/${formatNum(total)} 剩余</span>` : '';
     return `<table width="100%" cellspacing="0" cellpadding="0">` +
-      // Row 1: title + reset-time on the SAME line
-      `<tr><td align="left" style="padding:6px 6px 2px 6px"><span style="color:${accent}">▍</span> <strong>${label}</strong> <span style="opacity:0.5">·</span> <span style="opacity:0.7">${resetText}</span></td></tr>` +
-      // Row 2: progress bar + percentage + used/total
-      `<tr><td align="left" style="padding:0px 6px 6px 6px;font-family:Consolas,Menlo,monospace">${progressBar(pct, pctColor)}&nbsp;&nbsp;<span style="color:${pctColor}"><strong>${pct}%</strong></span>${usedTotalSuffix}</td></tr>` +
+      // Row 1: title + X/Y 剩余 + reset-time on the SAME line
+      `<tr><td align="left" style="padding:6px 6px 2px 6px"><span style="color:${accent}">▍</span> <strong>${label}</strong> <span style="opacity:0.5">·</span> ${remainingText} <span style="opacity:0.5">·</span> <span style="opacity:0.7">${resetText}</span></td></tr>` +
+      // Row 2: progress bar + percentage (no X/Y suffix anymore, moved to Row 1)
+      `<tr><td align="left" style="padding:0px 6px 6px 6px;font-family:Consolas,Menlo,monospace">${progressBar(pct, pctColor)}&nbsp;&nbsp;<span style="color:${pctColor}"><strong>${pct}%</strong></span></td></tr>` +
       `</table>`;
   };
 
@@ -1187,7 +1195,7 @@ function updateStatusBar(statusBarItem, api, data, apiData, usageStats, overseas
       const resetText = isEn
         ? `${rt.hours}h ${rt.minutes}m until reset`
         : `${rt.hours}h ${rt.minutes}m 后重置`;
-      content += renderCard(isEn ? '5h Quota' : '5h 限额', pct, used, generalModel.totalCount, resetText, '#9cdcfe');
+      content += renderCard(isEn ? '5h Remaining' : '5h 剩余', pct, used, generalModel.totalCount, resetText, '#9cdcfe');
     }
     if (generalModel) {
       const wp = generalModel.weeklyPercentage;
@@ -1197,7 +1205,7 @@ function updateStatusBar(statusBarItem, api, data, apiData, usageStats, overseas
       const resetText = isEn
         ? `${wrt.days}d ${wrt.hours}h until reset`
         : `${wrt.days}天 ${wrt.hours}h 后重置`;
-      content += renderCard(isEn ? 'Weekly Quota' : '周限额', wp, wUsed, wt, resetText, '#dcdcaa');
+      content += renderCard(isEn ? 'Weekly Remaining' : '周剩余', wp, wUsed, wt, resetText, '#dcdcaa');
     }
     if (videoModel) {
       const pct = videoModel.percentage;
