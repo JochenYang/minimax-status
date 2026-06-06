@@ -275,13 +275,13 @@ class MinimaxAPI {
         // ⚠ 修复：只过滤真正无可用信息的模型（remaining_percent 都没有）。
         // 旧逻辑过滤 total=0 && weekly=0，但主人账号的 `general` 模型
         // total=0 但 remaining_percent=93（5h 6% 已用）—— 是有意义的。
+        // ⚠ 1.5.1 修复 status check：之前"双 status 都 != 1"过滤会把"5h 满 100%（status=0/未启用）"
+        // 跟"5h + 周 都用完"两种场景都误判过滤，导致套餐卡消失。
+        // 改成：只检查 percent 有值就保留（允许 status=0 已用完、status=undefined 未启用）。
+        // 已下架模型 percent 通常 null，被 ① 过滤；用完的模型 percent=0，保留并显示 0% 进度条。
         const remainingPct = m.current_interval_remaining_percent;
         const weeklyRemainingPct = m.current_weekly_remaining_percent;
         if (remainingPct == null && weeklyRemainingPct == null) return false;
-        // 过滤 status != 1 的（已废弃/不可用）
-        const intervalStatus = m.current_interval_status;
-        const weeklyStatus = m.current_weekly_status;
-        if (intervalStatus !== undefined && intervalStatus !== 1 && weeklyStatus !== undefined && weeklyStatus !== 1) return false;
         return true;
       })
       .map(m => {
