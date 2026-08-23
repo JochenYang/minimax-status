@@ -1,6 +1,82 @@
 const vscode = require("vscode");
 const MinimaxAPI = require("./api");
 
+function getConfiguredLanguage() {
+  const config = vscode.workspace.getConfiguration("minimaxStatus");
+  const configuredLanguage = config.get("language");
+  const inspected = config.inspect?.("language");
+  const hasExplicitLanguage = [
+    inspected?.globalValue,
+    inspected?.workspaceValue,
+    inspected?.workspaceFolderValue,
+  ].some((value) => value !== undefined);
+
+  if (hasExplicitLanguage && (configuredLanguage === "zh-CN" || configuredLanguage === "en-US")) {
+    return configuredLanguage;
+  }
+
+  const vscodeLanguage = String(vscode.env?.language || "").toLowerCase();
+  return vscodeLanguage.startsWith("zh") ? "zh-CN" : "en-US";
+}
+
+const ERROR_MESSAGES = {
+  "zh-CN": {
+    missingToken: "请在设置中配置国内 Token Plan Key。",
+    missingOverseasToken: "请在设置中配置海外 Token Plan Key。",
+    auth: "认证失败（错误码 {code}）。请确认使用对应区域的 Token Plan Key，而不是普通 API Key。",
+    api: "MiniMax 接口返回错误{code}。",
+    timeout: "请求超时，请检查网络连接。",
+    network: "网络连接失败，请检查网络和服务区域。",
+    noUsageData: "接口未返回可用的用量数据。",
+    unknown: "获取 MiniMax 状态失败。",
+  },
+  "en-US": {
+    missingToken: "Configure a domestic Token Plan key in Settings.",
+    missingOverseasToken: "Configure an overseas Token Plan key in Settings.",
+    auth: "Authentication failed (error {code}). Use the Token Plan key for the matching region, not a regular API key.",
+    api: "The MiniMax API returned an error{code}.",
+    timeout: "The request timed out. Check your network connection.",
+    network: "The network request failed. Check your connection and service region.",
+    noUsageData: "The API returned no usage data.",
+    unknown: "Failed to fetch MiniMax status.",
+  },
+};
+
+function getLocalizedErrorMessage(error, language) {
+  const messages = ERROR_MESSAGES[language] || ERROR_MESSAGES["zh-CN"];
+  const codeText = error?.statusCode ? ` (${error.statusCode})` : "";
+
+  switch (error?.code) {
+    case "missing-token":
+      return messages.missingToken;
+    case "missing-overseas-token":
+      return messages.missingOverseasToken;
+    case "auth":
+      return messages.auth.replace("{code}", error.statusCode || "unknown");
+    case "api":
+      return messages.api.replace("{code}", codeText);
+    case "timeout":
+      return messages.timeout;
+    case "network":
+      return messages.network;
+    case "no-usage-data":
+      return messages.noUsageData;
+    default:
+      return messages.unknown;
+  }
+}
+
+function escapeHtml(value) {
+  const entities = {
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  };
+  return String(value).replace(/[&<>"']/g, (character) => entities[character]);
+}
+
 // TreeView data provider for sidebar
 class MinimaxStatusTreeProvider {
   constructor() {
@@ -8,7 +84,7 @@ class MinimaxStatusTreeProvider {
     this.onDidChangeTreeData = this._onDidChangeTreeData.event;
     this.usageData = null;
     this.usageStats = null;
-    this.language = "zh-CN";
+    this.language = getConfiguredLanguage();
   }
 
   setData(usageData, usageStats, language) {
@@ -23,8 +99,7 @@ class MinimaxStatusTreeProvider {
   }
 
   getChildren(element) {
-    const config = vscode.workspace.getConfiguration("minimaxStatus");
-    this.language = config.get("language") || "zh-CN";
+    this.language = getConfiguredLanguage();
 
     // If element is provided, return its children (for nested items)
     if (element && element.children) {
@@ -97,6 +172,18 @@ class MinimaxStatusTreeProvider {
   }
 
   formatNum(num) {
+    if (this.language === "en-US") {
+      if (num >= 1000000000) {
+        return (num / 1000000000).toFixed(1).replace(/\.0$/, "") + "B";
+      }
+      if (num >= 1000000) {
+        return (num / 1000000).toFixed(1).replace(/\.0$/, "") + "M";
+      }
+      if (num >= 1000) {
+        return (num / 1000).toFixed(1).replace(/\.0$/, "") + "K";
+      }
+      return num.toLocaleString("en-US");
+    }
     if (num >= 100000000) {
       return (num / 100000000).toFixed(1).replace(/\.0$/, "") + "亿";
     }
@@ -147,13 +234,13 @@ function activate(context) {
     const updateStatus = async () => {
       if (isUpdating) return;
       isUpdating = true;
-      let language = "zh-CN";
+      let language = getConfiguredLanguage();
       try {
         // Refresh API config to get latest settings
         api.refreshConfig();
         const config = vscode.workspace.getConfiguration("minimaxStatus");
         const overseasDisplay = config.get("overseasDisplay") || "none";
-        language = config.get("language") || "zh-CN";
+        language = getConfiguredLanguage();
 
         // Get domestic data
         const [apiData, subscriptionData] = await Promise.all([
@@ -206,11 +293,13 @@ function activate(context) {
         updateStatusBar(statusBarItem, api, usageData, apiData, usageStats, overseasUsageData, overseasApiData, overseasDisplay, language);
         treeProvider.setData(usageData, usageStats, language);
       } catch (error) {
-        console.error("获取状态失败:", error.message);
+        console.error("MiniMax Status update failed:", error.details || error.message);
         const errorText = language === 'en-US' ? 'Error' : '错误';
-        const clickConfig = language === 'en-US' ? 'Click to configure' : '点击配置';
+        const clickConfig = api.token
+          ? (language === 'en-US' ? 'Check API key and region' : '检查 API Key 和区域')
+          : (language === 'en-US' ? 'Click to configure' : '点击配置');
         statusBarItem.text = "$(warning) MiniMax";
-        statusBarItem.tooltip = `${errorText}: ${error.message}\n${clickConfig}`;
+        statusBarItem.tooltip = `${errorText}: ${getLocalizedErrorMessage(error, language)}\n${clickConfig}`;
         statusBarItem.color = new vscode.ThemeColor("errorForeground");
       } finally {
         isUpdating = false;
@@ -277,28 +366,35 @@ function activate(context) {
 
     // Always show status bar item
     if (!api.token) {
-      statusBarItem.text = "MiniMax: 需要配置";
+      const initialLanguage = getConfiguredLanguage();
+      const isEnglish = initialLanguage === "en-US";
+      const configureAction = isEnglish ? "Configure now" : "立即配置";
+      const laterAction = isEnglish ? "Later" : "稍后设置";
+      statusBarItem.text = isEnglish ? "MiniMax: Configure" : "MiniMax: 需要配置";
       statusBarItem.color = new vscode.ThemeColor("warningForeground");
-      statusBarItem.tooltip =
-        "MiniMax Status 需要配置 Token\n点击立即配置";
+      statusBarItem.tooltip = isEnglish
+        ? "MiniMax Status requires a Token Plan key\nClick to configure"
+        : "MiniMax Status 需要配置 Token\n点击立即配置";
       statusBarItem.command = "minimaxStatus.setup";
 
       setTimeout(() => {
         vscode.window
           .showInformationMessage(
-            "欢迎使用 MiniMax Status！\n\n需要配置您的访问令牌才能开始使用。",
-            "立即配置",
-            "稍后设置"
+            isEnglish
+              ? "Welcome to MiniMax Status!\n\nConfigure a Token Plan key to get started."
+              : "欢迎使用 MiniMax Status！\n\n需要配置您的访问令牌才能开始使用。",
+            configureAction,
+            laterAction
           )
           .then((selection) => {
-            if (selection === "立即配置") {
+            if (selection === configureAction) {
               vscode.commands.executeCommand("minimaxStatus.setup");
             }
           });
       }, 2000);
     } else {
       // If configured but no data yet, show waiting message
-      const loadingLang = config.get("language") || "zh-CN";
+      const loadingLang = getConfiguredLanguage();
       const loadingText = loadingLang === 'en-US' ? 'Loading...' : '加载中...';
       const loadingTooltip = loadingLang === 'en-US' ? 'MiniMax Status\nFetching status...' : 'MiniMax Status\n正在获取状态...';
       statusBarItem.text = `⏳ MiniMax: ${loadingText}`;
@@ -307,9 +403,11 @@ function activate(context) {
       statusBarItem.command = "minimaxStatus.refresh";
     }
   } catch (error) {
-    console.error("MiniMax Status 扩展激活失败:", error.message);
+    const language = getConfiguredLanguage();
+    const errorText = language === "en-US" ? "MiniMax Status activation failed" : "MiniMax Status 扩展激活失败";
+    console.error(`${errorText}:`, error.details || error.message);
     vscode.window.showErrorMessage(
-      "MiniMax Status 扩展激活失败: " + error.message
+      `${errorText}: ${getLocalizedErrorMessage(error, language)}`
     );
   }
 }
@@ -317,8 +415,7 @@ function activate(context) {
 // Create help webview
 // eslint-disable-next-line no-unused-vars
 async function showHelpWebView(context) {
-  const config = vscode.workspace.getConfiguration("minimaxStatus");
-  const language = config.get("language") || "zh-CN";
+  const language = getConfiguredLanguage();
 
   const panel = vscode.window.createWebviewPanel(
     "minimaxHelp",
@@ -427,6 +524,11 @@ async function showHelpWebView(context) {
                 <h2>${t.step3Title}</h2>
                 <p>${t.step3Content}</p>
             </div>
+
+            <div class="step">
+                <h2>${t.step4Title}</h2>
+                <p>${t.step4Content}</p>
+            </div>
         </div>
     </body>
     </html>
@@ -437,9 +539,13 @@ async function showHelpWebView(context) {
 
 // Create settings webview
 async function showSettingsWebView(context, api, updateStatus) {
+  // Get current configuration before creating the panel so its title and
+  // document language match the selected extension language.
+  const config = vscode.workspace.getConfiguration("minimaxStatus");
+  const currentLanguage = getConfiguredLanguage();
   const panel = vscode.window.createWebviewPanel(
     "minimaxSettings",
-    "MiniMax Status 设置",
+    currentLanguage === "en-US" ? "MiniMax Status Settings" : "MiniMax Status 设置",
     vscode.ViewColumn.One,
     {
       enableScripts: true,
@@ -448,14 +554,12 @@ async function showSettingsWebView(context, api, updateStatus) {
   );
 
   // Get current configuration
-  const config = vscode.workspace.getConfiguration("minimaxStatus");
-  const currentToken = config.get("token") || "";
+  const currentToken = String(config.get("token") || "").trim();
   const currentInterval = config.get("refreshInterval") || 30;
   const currentShowTooltip = config.get("showTooltip") ?? true;
   const currentModelName = config.get("modelName") || "";
   const currentOverseasDisplay = config.get("overseasDisplay") || "none";
-  const currentOverseasToken = config.get("overseasToken") || "";
-  const currentLanguage = config.get("language") || "zh-CN";
+  const currentOverseasToken = String(config.get("overseasToken") || "").trim();
 
   // Language translations
   const i18n = {
@@ -485,7 +589,11 @@ async function showSettingsWebView(context, api, updateStatus) {
       overseasApiKeyError: "请输入海外 API Key",
       invalidInterval: "刷新间隔必须在 5-300 秒之间",
       modelAuto: "自动选择第一个模型",
-      modelEmpty: "请先配置 API Key",
+      modelEmpty: "请先配置 Token Plan API Key",
+      modelLoadFailed: "模型列表加载失败，请检查 API Key、区域和网络",
+      languageLabel: "语言",
+      languageChinese: "中文",
+      languageEnglish: "英文",
     },
     "en-US": {
       title: "MiniMax Settings",
@@ -513,21 +621,34 @@ async function showSettingsWebView(context, api, updateStatus) {
       overseasApiKeyError: "Overseas API Key is required",
       invalidInterval: "Refresh interval must be between 5-300 seconds",
       modelAuto: "Auto select first model",
-      modelEmpty: "Please configure API Key first",
+      modelEmpty: "Configure a Token Plan API key first",
+      modelLoadFailed: "Unable to load models. Check the API key, region, and network.",
+      languageLabel: "Language",
+      languageChinese: "Chinese",
+      languageEnglish: "English",
     }
   };
 
   const t = i18n[currentLanguage] || i18n["zh-CN"];
 
-  // Fetch available models if token is configured
+  // Fetch available models from the configured region. Pure overseas mode
+  // must use the overseas token; otherwise the selector falsely reports that
+  // no API key is configured.
+  api.refreshConfig();
   let availableModels = [];
-  if (currentToken) {
+  let modelLoadFailed = false;
+  const useOverseasModelApi = currentOverseasDisplay === "overseas" && !currentToken && currentOverseasToken;
+  const hasModelCredential = Boolean(useOverseasModelApi ? currentOverseasToken : currentToken);
+  if (hasModelCredential) {
     try {
-      const statusData = await api.getUsageStatus();
+      const statusData = useOverseasModelApi
+        ? await api.getOverseasUsageStatus()
+        : await api.getUsageStatus();
       const parsedData = api.parseUsageData(statusData, null);
       availableModels = parsedData.allModels || [];
     } catch (error) {
-      // Silently fail, model selector will show default option
+      modelLoadFailed = true;
+      console.error("Failed to load model list:", error.message);
     }
   }
 
@@ -535,17 +656,21 @@ async function showSettingsWebView(context, api, updateStatus) {
   const t_for_model = i18n[currentLanguage] || i18n["zh-CN"];
   const modelOptions = availableModels.length > 0
     ? `<option value="">${t_for_model.modelAuto}</option>` +
-      availableModels.map(m => `<option value="${m}" ${m === currentModelName ? 'selected' : ''}>${m}</option>`).join('')
-    : `<option value="">${t_for_model.modelEmpty}</option>`;
+      availableModels.map((modelName) => {
+        const safeModelName = escapeHtml(modelName);
+        const selected = modelName === currentModelName ? "selected" : "";
+        return `<option value="${safeModelName}" ${selected}>${safeModelName}</option>`;
+      }).join('')
+    : `<option value="">${modelLoadFailed ? t_for_model.modelLoadFailed : t_for_model.modelEmpty}</option>`;
 
   // Create HTML content
   panel.webview.html = `
     <!DOCTYPE html>
-    <html lang="zh-CN">
+    <html lang="${currentLanguage}">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>MiniMax Status 设置</title>
+        <title>${t.title}</title>
         <style>
             body {
                 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -677,7 +802,7 @@ async function showSettingsWebView(context, api, updateStatus) {
                 <h2>${t.domesticTitle}</h2>
                 <div class="form-group">
                     <label for="token">${t.apiKey}</label>
-                    <input type="password" id="token" placeholder="${t.apiKeyPlaceholder}" value="${currentToken}">
+                    <input type="password" id="token" placeholder="${t.apiKeyPlaceholder}" value="${escapeHtml(currentToken)}">
                     <div class="info-text">${t.apiKeyInfo}</div>
                     <div class="error" id="token-error"></div>
                 </div>
@@ -688,7 +813,7 @@ async function showSettingsWebView(context, api, updateStatus) {
                 <h2>${t.overseasTitle}</h2>
                 <div class="form-group">
                     <label for="overseasToken">${t.apiKey}</label>
-                    <input type="password" id="overseasToken" placeholder="${t.overseasApiKeyPlaceholder}" value="${currentOverseasToken}">
+                    <input type="password" id="overseasToken" placeholder="${t.overseasApiKeyPlaceholder}" value="${escapeHtml(currentOverseasToken)}">
                     <div class="info-text">${t.overseasApiKeyInfo}</div>
                     <div class="error" id="overseasToken-error"></div>
                 </div>
@@ -717,10 +842,10 @@ async function showSettingsWebView(context, api, updateStatus) {
                     </div>
                 </div>
                 <div class="form-group">
-                    <label for="language">Language / 语言</label>
+                    <label for="language">${t.languageLabel}</label>
                     <select id="language">
-                        <option value="zh-CN" ${currentLanguage === 'zh-CN' ? 'selected' : ''}>中文</option>
-                        <option value="en-US" ${currentLanguage === 'en-US' ? 'selected' : ''}>English</option>
+                        <option value="zh-CN" ${currentLanguage === 'zh-CN' ? 'selected' : ''}>${t.languageChinese}</option>
+                        <option value="en-US" ${currentLanguage === 'en-US' ? 'selected' : ''}>${t.languageEnglish}</option>
                     </select>
                 </div>
             </div>
@@ -747,6 +872,11 @@ async function showSettingsWebView(context, api, updateStatus) {
 
         <script>
             const vscode = acquireVsCodeApi();
+            const messages = ${JSON.stringify({
+              apiKeyError: t.apiKeyError,
+              overseasApiKeyError: t.overseasApiKeyError,
+              invalidInterval: t.invalidInterval,
+            })};
 
             document.getElementById('saveBtn').addEventListener('click', () => {
                 const token = document.getElementById('token').value.trim();
@@ -766,20 +896,20 @@ async function showSettingsWebView(context, api, updateStatus) {
 
                 // 仅在非纯海外模式下要求国内 Token
                 if (overseasDisplay !== 'overseas' && !token) {
-                    document.getElementById('token-error').textContent = t.apiKeyError;
+                    document.getElementById('token-error').textContent = messages.apiKeyError;
                     hasError = true;
                 }
 
                 // Validate overseas credentials based on display mode
                 if (overseasDisplay === 'overseas' || overseasDisplay === 'both') {
                     if (!overseasToken) {
-                        document.getElementById('overseasToken-error').textContent = t.overseasApiKeyError;
+                        document.getElementById('overseasToken-error').textContent = messages.overseasApiKeyError;
                         hasError = true;
                     }
                 }
 
                 if (interval < 5 || interval > 300) {
-                    alert(t.invalidInterval);
+                    alert(messages.invalidInterval);
                     hasError = true;
                 }
 
@@ -810,7 +940,7 @@ async function showSettingsWebView(context, api, updateStatus) {
             window.addEventListener('message', event => {
                 const message = event.data;
                 if (message.command === 'closePanel') {
-                    panel.dispose();
+                    vscode.postMessage({ command: 'cancelSettings' });
                 }
             });
         </script>
@@ -820,62 +950,66 @@ async function showSettingsWebView(context, api, updateStatus) {
 
   // Handle messages from webview
   panel.webview.onDidReceiveMessage(
-    (message) => {
+    async (message) => {
       switch (message.command) {
         case "saveSettings": {
           // Update VSCode settings
           const config = vscode.workspace.getConfiguration("minimaxStatus");
 
-          config.update(
-            "token",
-            message.token,
-            vscode.ConfigurationTarget.Global
-          );
-          config.update(
-            "refreshInterval",
-            message.interval,
-            vscode.ConfigurationTarget.Global
-          );
-          config.update(
-            "showTooltip",
-            message.showTooltip,
-            vscode.ConfigurationTarget.Global
-          );
-          if (message.modelName !== undefined) {
+          const updates = [
             config.update(
+              "token",
+              message.token,
+              vscode.ConfigurationTarget.Global
+            ),
+            config.update(
+              "refreshInterval",
+              message.interval,
+              vscode.ConfigurationTarget.Global
+            ),
+            config.update(
+              "showTooltip",
+              message.showTooltip,
+              vscode.ConfigurationTarget.Global
+            ),
+          ];
+          if (message.modelName !== undefined) {
+            updates.push(config.update(
               "modelName",
               message.modelName,
               vscode.ConfigurationTarget.Global
-            );
+            ));
           }
           if (message.overseasDisplay !== undefined) {
-            config.update(
+            updates.push(config.update(
               "overseasDisplay",
               message.overseasDisplay,
               vscode.ConfigurationTarget.Global
-            );
+            ));
           }
           if (message.overseasToken !== undefined) {
-            config.update(
+            updates.push(config.update(
               "overseasToken",
               message.overseasToken,
               vscode.ConfigurationTarget.Global
-            );
+            ));
           }
           if (message.language !== undefined) {
-            config.update(
+            updates.push(config.update(
               "language",
               message.language,
               vscode.ConfigurationTarget.Global
-            );
+            ));
           }
+
+          await Promise.all(updates);
 
           panel.dispose();
 
           // Refresh status
-          updateStatus();
+          await updateStatus();
 
-          const successMsg = currentLanguage === 'en-US' ? 'Settings saved!' : '配置保存成功！';
+          const successMsg = message.language === 'en-US' ? 'Settings saved!' : '配置保存成功！';
           vscode.window.showInformationMessage(successMsg);
           break;
         }
@@ -1293,4 +1427,5 @@ function deactivate() {
 module.exports = {
   activate,
   deactivate,
+  getLocalizedErrorMessage,
 };

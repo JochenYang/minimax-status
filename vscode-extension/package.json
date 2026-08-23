@@ -1,8 +1,8 @@
 {
   "name": "minimax-status-vscode",
   "displayName": "MiniMax Status",
-  "description": "在 VS Code 状态栏显示 MiniMax Token-Plan 使用状态",
-  "version": "1.5.1",
+  "description": "%extension.description%",
+  "version": "1.5.2",
   "publisher": "JochenYang",
   "icon": "./public/icon.png",
   "engines": {
@@ -14,21 +14,21 @@
   "main": "./extension.js",
   "activationEvents": [
     "onStartupFinished",
-    "onView:mmaximaxStatusView"
+    "onView:minimaxStatusView"
   ],
   "contributes": {
     "commands": [
       {
         "command": "minimaxStatus.setup",
-        "title": "MiniMax Status: 配置向导",
+        "title": "%command.setup.title%",
         "category": "MiniMax",
-        "description": "配置 MiniMax 访问令牌"
+        "description": "%command.setup.description%"
       },
       {
         "command": "minimaxStatus.refresh",
-        "title": "MiniMax Status: 刷新状态",
+        "title": "%command.refresh.title%",
         "category": "MiniMax",
-        "description": "手动刷新 MiniMax 状态"
+        "description": "%command.refresh.description%"
       }
     ],
     "viewsContainers": {
@@ -44,35 +44,35 @@
       "minimaxStatusSidebar": [
         {
           "id": "minimaxStatusView",
-          "name": "设置"
+          "name": "%view.settings.name%"
         }
       ]
     },
     "configuration": {
-      "title": "MiniMax Status",
+      "title": "%configuration.title%",
       "properties": {
         "minimaxStatus.token": {
           "type": "string",
           "default": "",
-          "description": "MiniMax 访问令牌",
+          "description": "%config.token.description%",
           "order": 1
         },
         "minimaxStatus.refreshInterval": {
           "type": "number",
           "default": 30,
-          "description": "刷新间隔（秒）",
+          "description": "%config.refreshInterval.description%",
           "order": 3
         },
         "minimaxStatus.showTooltip": {
           "type": "boolean",
           "default": true,
-          "description": "显示详细提示信息",
+          "description": "%config.showTooltip.description%",
           "order": 4
         },
         "minimaxStatus.modelName": {
           "type": "string",
           "default": "",
-          "description": "选择要显示的模型（留空则使用第一个模型）",
+          "description": "%config.modelName.description%",
           "order": 5
         },
         "minimaxStatus.overseasDisplay": {
@@ -83,13 +83,13 @@
             "both"
           ],
           "default": "none",
-          "description": "海外用量显示模式",
+          "description": "%config.overseasDisplay.description%",
           "order": 6
         },
         "minimaxStatus.overseasToken": {
           "type": "string",
           "default": "",
-          "description": "海外版 API Key",
+          "description": "%config.overseasToken.description%",
           "order": 7
         },
         "minimaxStatus.language": {
@@ -99,7 +99,7 @@
             "en-US"
           ],
           "default": "zh-CN",
-          "description": "Language / 语言",
+          "description": "%config.language.description%",
           "order": 8
         }
       }

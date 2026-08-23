@@ -1,0 +1,16 @@
+{
+  "extension.description": "Display MiniMax Token Plan usage in the VS Code status bar",
+  "command.setup.title": "MiniMax Status: Configure",
+  "command.setup.description": "Configure the MiniMax Token Plan key",
+  "command.refresh.title": "MiniMax Status: Refresh",
+  "command.refresh.description": "Refresh MiniMax usage status",
+  "view.settings.name": "Settings",
+  "configuration.title": "MiniMax Status",
+  "config.token.description": "MiniMax Token Plan key for the domestic service",
+  "config.refreshInterval.description": "Refresh interval in seconds",
+  "config.showTooltip.description": "Show detailed usage tooltip",
+  "config.modelName.description": "Model to display; leave empty to use the first model",
+  "config.overseasDisplay.description": "Choose whether to display overseas usage",
+  "config.overseasToken.description": "Token Plan key for the overseas service",
+  "config.language.description": "Extension language"
+}

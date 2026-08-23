@@ -14,6 +14,36 @@ const httpsAgent = new https.Agent({
   servername: 'minimaxi.com'
 });
 
+const AUTH_ERROR_CODES = new Set([1004, 2049]);
+
+function getBaseResponseError(data, scope) {
+  const baseResp = data?.base_resp;
+  const statusCode = Number(baseResp?.status_code);
+  if (!baseResp || Number.isNaN(statusCode) || statusCode === 0) {
+    return null;
+  }
+
+  const statusMessage = baseResp.status_msg || "unknown error";
+  const authHint = AUTH_ERROR_CODES.has(statusCode)
+    ? " Please verify that you are using the Token Plan key for the matching region, not a regular API key."
+    : "";
+  return `${scope} error (${statusCode}): ${statusMessage}.${authHint}`;
+}
+
+function createApiError(message) {
+  const error = new Error(message);
+  error.isMinimaxApiError = true;
+  return error;
+}
+
+function assertSuccessfulResponse(data, scope) {
+  const responseError = getBaseResponseError(data, scope);
+  if (responseError) {
+    throw createApiError(responseError);
+  }
+  return data;
+}
+
 class MinimaxAPI {
   constructor() {
     this.token = null;
@@ -35,7 +65,7 @@ class MinimaxAPI {
       // 只从独立的 config 文件读取
       if (fs.existsSync(this.configPath)) {
         const config = JSON.parse(fs.readFileSync(this.configPath, "utf8"));
-        this.token = config.token;
+        this.token = String(config.token || "").trim();
         this.groupId = config.groupId;
       }
     } catch (error) {
@@ -57,7 +87,7 @@ class MinimaxAPI {
   }
 
   setCredentials(token, groupId) {
-    this.token = token;
+    this.token = String(token || "").trim();
     this.groupId = groupId;
     this.saveConfig();
   }
@@ -93,12 +123,21 @@ class MinimaxAPI {
         }
       );
 
-      // 更新缓存
-      this.cache.data = response.data;
+      const data = assertSuccessfulResponse(response.data, "Usage API");
+
+      // 更新缓存 only after the response has been validated.
+      this.cache.data = data;
       this.cache.timestamp = now;
 
-      return response.data;
+      return data;
     } catch (error) {
+      if (error.isMinimaxApiError) {
+        throw error;
+      }
+      const responseError = getBaseResponseError(error.response?.data, "Usage API");
+      if (responseError) {
+        throw new Error(responseError);
+      }
       if (error.response?.status === 401) {
         throw new Error(
           "Invalid token or unauthorized. Please check your credentials."
@@ -135,7 +174,7 @@ class MinimaxAPI {
         }
       );
 
-      return response.data;
+      return assertSuccessfulResponse(response.data, "Subscription API");
     } catch (error) {
       // 如果订阅 API 失败，静默返回 null
       return null;
@@ -167,9 +206,16 @@ class MinimaxAPI {
         }
       );
 
-      return response.data;
+      return assertSuccessfulResponse(response.data, "Billing API");
     } catch (error) {
-      throw new Error(`账单 API 请求失败: ${error.message}`);
+      if (error.isMinimaxApiError) {
+        throw error;
+      }
+      const responseError = getBaseResponseError(error.response?.data, "Billing API");
+      if (responseError) {
+        throw new Error(responseError);
+      }
+      throw new Error(`Billing API request failed: ${error.message}`);
     }
   }
 

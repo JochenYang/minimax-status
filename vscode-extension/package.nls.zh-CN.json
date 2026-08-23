@@ -1,0 +1,16 @@
+{
+  "extension.description": "在 VS Code 状态栏显示 MiniMax Token-Plan 使用状态",
+  "command.setup.title": "MiniMax Status: 配置向导",
+  "command.setup.description": "配置 MiniMax Token Plan 访问令牌",
+  "command.refresh.title": "MiniMax Status: 刷新状态",
+  "command.refresh.description": "手动刷新 MiniMax 使用状态",
+  "view.settings.name": "设置",
+  "configuration.title": "MiniMax Status",
+  "config.token.description": "国内版 MiniMax Token Plan 访问令牌",
+  "config.refreshInterval.description": "刷新间隔（秒）",
+  "config.showTooltip.description": "显示详细用量提示",
+  "config.modelName.description": "选择要显示的模型（留空则使用第一个模型）",
+  "config.overseasDisplay.description": "选择是否显示海外用量",
+  "config.overseasToken.description": "海外版 Token Plan 访问令牌",
+  "config.language.description": "扩展语言"
+}

@@ -11,8 +11,8 @@ MiniMax Token-Plan 用量监控工具，支持 CLI 和 Claude Code / Droid 状�
 
 | 插件       | 版本  | 安装方式                                                                                                   |
 |------------|-------|------------------------------------------------------------------------------------------------------------|
-| **CLI**    | 1.2.5 | `npm install -g minimax-status`                                                                            |
-| **VSCode** | 1.5.0 | [VSCode Marketplace](https://marketplace.visualstudio.com/items?itemName=JochenYang.minimax-status-vscode) |
+| **CLI**    | 1.2.6 | `npm install -g minimax-status`                                                                            |
+| **VSCode** | 1.5.2 | [VSCode Marketplace](https://marketplace.visualstudio.com/items?itemName=JochenYang.minimax-status-vscode) |
 
 ## 特性
 

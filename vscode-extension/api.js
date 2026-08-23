@@ -11,6 +11,83 @@ const httpsAgent = new https.Agent({
   servername: "minimaxi.com",
 });
 
+const AUTH_ERROR_CODES = new Set([1004, 2049]);
+
+function getBaseResponseError(data, scope) {
+  const baseResp = data?.base_resp;
+  const statusCode = Number(baseResp?.status_code);
+  if (!baseResp || Number.isNaN(statusCode) || statusCode === 0) {
+    return null;
+  }
+
+  return {
+    code: AUTH_ERROR_CODES.has(statusCode) ? "auth" : "api",
+    scope,
+    statusCode,
+    details: baseResp.status_msg || "unknown error",
+  };
+}
+
+function createApiError({ code, scope, statusCode, details }) {
+  const error = new Error(details || code);
+  error.isMinimaxApiError = true;
+  error.code = code;
+  error.scope = scope;
+  error.statusCode = statusCode;
+  error.details = details || "";
+  return error;
+}
+
+function assertSuccessfulResponse(data, scope) {
+  const responseError = getBaseResponseError(data, scope);
+  if (responseError) {
+    throw createApiError(responseError);
+  }
+  return data;
+}
+
+function normalizeRequestError(error, scope) {
+  if (error.isMinimaxApiError) {
+    return error;
+  }
+
+  const responseError = getBaseResponseError(error.response?.data, scope);
+  if (responseError) {
+    return createApiError(responseError);
+  }
+
+  if (error.response?.status === 401) {
+    return createApiError({
+      code: "auth",
+      scope,
+      statusCode: 401,
+      details: "unauthorized",
+    });
+  }
+
+  if (error.code === "ECONNABORTED" || error.code === "ETIMEDOUT") {
+    return createApiError({
+      code: "timeout",
+      scope,
+      details: error.message,
+    });
+  }
+
+  if (error.code === "ENOTFOUND" || error.code === "ECONNREFUSED") {
+    return createApiError({
+      code: "network",
+      scope,
+      details: error.message,
+    });
+  }
+
+  return createApiError({
+    code: "api",
+    scope,
+    details: error.message,
+  });
+}
+
 class MinimaxAPI {
   constructor(context) {
     this.context = context;
@@ -20,16 +97,16 @@ class MinimaxAPI {
 
   loadConfig() {
     const config = vscode.workspace.getConfiguration("minimaxStatus");
-    this.token = config.get("token");
+    this.token = String(config.get("token") || "").trim();
     this.selectedModelName = config.get("modelName");
     // Load overseas configuration
-    this.overseasToken = config.get("overseasToken");
+    this.overseasToken = String(config.get("overseasToken") || "").trim();
     this.overseasDisplay = config.get("overseasDisplay") || "none";
   }
 
   async getUsageStatus() {
     if (!this.token) {
-      throw new Error("请在设置中配置 MiniMax 访问令牌");
+      throw createApiError({ code: "missing-token", scope: "domestic-usage" });
     }
 
     try {
@@ -45,21 +122,15 @@ class MinimaxAPI {
         }
       );
 
-      return response.data;
+      return assertSuccessfulResponse(response.data, "国内用量接口");
     } catch (error) {
-      if (error.response?.status === 401) {
-        throw new Error("无效的令牌或未授权。请检查您的凭据。");
-      }
-      if (error.response?.data?.base_resp?.status_code === 1004) {
-        throw new Error("登录已过期或凭据无效，请前往 platform.minimaxi.com 重新获取 Coding Plan API Key (sk-cp-...)。");
-      }
-      throw new Error(`API 请求失败: ${error.message}`);
+      throw normalizeRequestError(error, "domestic-usage");
     }
   }
 
   async getOverseasUsageStatus() {
     if (!this.overseasToken) {
-      throw new Error("请在设置中配置海外 API Key");
+      throw createApiError({ code: "missing-overseas-token", scope: "overseas-usage" });
     }
 
     try {
@@ -74,18 +145,15 @@ class MinimaxAPI {
         }
       );
 
-      return response.data;
+      return assertSuccessfulResponse(response.data, "海外用量接口");
     } catch (error) {
-      if (error.response?.status === 401) {
-        throw new Error("无效的令牌或未授权。请检查您的凭据。");
-      }
-      throw new Error(`海外 API 请求失败: ${error.message}`);
+      throw normalizeRequestError(error, "overseas-usage");
     }
   }
 
   async getSubscriptionDetails() {
     if (!this.token) {
-      throw new Error("请在设置中配置 MiniMax 访问令牌");
+      throw createApiError({ code: "missing-token", scope: "subscription" });
     }
 
     try {
@@ -105,12 +173,9 @@ class MinimaxAPI {
         }
       );
 
-      return response.data;
+      return assertSuccessfulResponse(response.data, "订阅接口");
     } catch (error) {
-      if (error.response?.status === 401) {
-        throw new Error("无效的令牌或未授权。请检查您的凭据。");
-      }
-      throw new Error(`API 请求失败: ${error.message}`);
+      throw normalizeRequestError(error, "subscription");
     }
   }
 
@@ -122,7 +187,7 @@ class MinimaxAPI {
    */
   async getBillingRecords(page = 1, limit = 100) {
     if (!this.token) {
-      throw new Error("请在设置中配置 MiniMax 访问令牌");
+      throw createApiError({ code: "missing-token", scope: "billing" });
     }
 
     try {
@@ -142,12 +207,9 @@ class MinimaxAPI {
         }
       );
 
-      return response.data;
+      return assertSuccessfulResponse(response.data, "账单接口");
     } catch (error) {
-      if (error.response?.status === 401) {
-        throw new Error("无效的令牌或未授权。请检查您的凭据。");
-      }
-      throw new Error(`账单 API 请求失败: ${error.message}`);
+      throw normalizeRequestError(error, "billing");
     }
   }
 
@@ -265,7 +327,7 @@ class MinimaxAPI {
    * @returns {Object} Parsed data for all supported models
    */
   parseAllModelsForTooltip(apiData) {
-    if (!apiData.model_remains || apiData.model_remains.length === 0) {
+    if (!apiData?.model_remains || apiData.model_remains.length === 0) {
       return { models: [], textModel: null, otherModels: [], ttsModel: null };
     }
 
@@ -398,8 +460,8 @@ class MinimaxAPI {
   }
 
   parseUsageData(apiData, subscriptionData) {
-    if (!apiData.model_remains || apiData.model_remains.length === 0) {
-      throw new Error("没有可用的使用数据");
+    if (!apiData?.model_remains || apiData.model_remains.length === 0) {
+      throw createApiError({ code: "no-usage-data", scope: "usage" });
     }
 
     // Parse all available models
